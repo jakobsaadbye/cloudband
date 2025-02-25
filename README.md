@@ -1,4 +1,6 @@
-# Vite + Deno + React + TypeScript
+# Cloudband ☁️🎸
+
+Collaborate on making soundtracks
 
 ## Running
 
