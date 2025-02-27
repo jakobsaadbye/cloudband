@@ -11,11 +11,3 @@ Start a dev server:
 ```
 $ deno task dev
 ```
-
-## Deploy
-
-Build production assets:
-
-```
-$ deno task build
-```

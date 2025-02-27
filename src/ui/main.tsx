@@ -1,4 +1,5 @@
 import './index.css'
+
 // @deno-types="@types/react"
 import { StrictMode } from 'react'
 // @deno-types="@types/react-dom/client"
@@ -9,6 +10,7 @@ import { createDb } from "@jakobsaadbye/teilen-sql"
 import { SqliteContext, Inspector } from "@jakobsaadbye/teilen-sql/react"
 
 const db = await createDb("cloudband.db");
+
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>

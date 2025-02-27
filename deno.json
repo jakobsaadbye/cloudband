@@ -16,6 +16,7 @@
     "@/" : "./src/",
     "@core/": "./src/core/",
     "@ui/": "./src/ui/",
+    "@icons/": "./src/ui/assets/icons/",
 
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.0",
     "@jakobsaadbye/teilen-sql": "../teilen-sql/index.ts",
@@ -29,6 +30,7 @@
     "tailwind-merge": "npm:tailwind-merge@^3.0.2",
     "tailwindcss": "npm:tailwindcss@^4.0.8",
     "vite": "npm:vite@^6.0.1",
+    "vite-plugin-svgr": "npm:vite-plugin-svgr@^4.3.0",
 
     "@codemirror/autocomplete": "npm:@codemirror/autocomplete@^6.18.4",
     "@codemirror/lang-sql": "npm:@codemirror/lang-sql@^6.8.0",
