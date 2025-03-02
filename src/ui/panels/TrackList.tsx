@@ -1,16 +1,14 @@
-import { Track } from "@core/types.ts";
-import { audioElement } from "../../core/context.ts";
+import { audioElement, useCtx } from "../../core/context.ts";
+import { Track } from "@core/track.ts";
 
+export const TrackList = () => {
 
-type Props = {
-    tracks: Track[]
-    setTracks: (ts: Track[]) => void
-}
+    const ctx = useCtx();
 
-export const TrackList = ({ tracks, setTracks }: Props) => {
+    const trackList = ctx.trackList;
+    const tracks    = ctx.trackList.tracks;
 
     const openFilePicker = () => {
-        // @Temp
         if (!audioElement) {
             console.error("Couldn't find audio player element");
             return;
@@ -26,15 +24,9 @@ export const TrackList = ({ tracks, setTracks }: Props) => {
             if (!files) return;
 
             for (const file of files) {
-                const track: Track = {
-                    kind: "line",
-                    file: file
-                };
-                setTracks([...tracks, track]);
+                const track = new Track("line", file);
 
-                // @Temp
-                const url = URL.createObjectURL(file);
-                audioElement.src = url;
+                trackList.LoadTrack(ctx, track);
             }
         }
     }

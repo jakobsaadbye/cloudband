@@ -1,5 +1,5 @@
 // @deno-types="npm:@types/react@19"
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { useIcons } from "../hooks/useIcons.tsx";
@@ -11,20 +11,24 @@ export const PlayControls = () => {
   
   const player = ctx.player;
 
+  //
+  // Keymap for the player controls
+  ////
   useEffect(() => {
     const handleKeyboardInput = (e: KeyboardEvent) => {
-
       let handled = false;
       const key = e.key;
-      if (key == " ") {
+      if (key === " ") {
         handled = true;
         if (!player.isPlaying) {
-          console.log("Play");
           player.BeginPlay(ctx);
         } else {
-          console.log("Stop");
-          player.StopPlay(ctx);
+          player.PausePlay(ctx);
         }
+      }
+      if (key === "Enter") {
+        handled = true;
+        player.ResetPlay(ctx);
       }
 
       if (handled) {
@@ -52,17 +56,21 @@ export const PlayControls = () => {
         <div tabIndex={2} title="Forward .">
           <icon.Forward className={twMerge(iconStyle)} />
         </div>
-        <div tabIndex={3} title="Reset ↩">
+        <div tabIndex={3} title="Reset ↩" onClick={() => player.ResetPlay(ctx)}>
           <icon.Stop className={twMerge(iconStyle)} />
         </div>
-        <div tabIndex={4} title="Play space" onClick={() => player.isPlaying ? player.StopPlay(ctx) : player.BeginPlay(ctx)}>
+        <div tabIndex={4} title="Play space" onClick={() => player.isPlaying ? player.PausePlay(ctx) : player.BeginPlay(ctx)}>
           <icon.Play className={twMerge(iconStyle, player.isPlaying ? "bg-green-700 fill-gray-50 rounded-md" : "")} />
         </div>
         <div tabIndex={5} title="Record r">
           <icon.Record className={twMerge(iconStyle, "fill-red-700")} />
         </div>
-        {/* Tempo controller */}
-        <section className="flex gap-x-4 py-1 px-3 w-full bg-gray-800 rounded-xl select-none">
+        {/* Beating controller */}
+        <section className="mx-8 flex gap-x-4 py-1 px-4 bg-gray-800 rounded-xl select-none">
+          <div>
+            <input disabled className="text-gray-200" type="number" min={1} max={300} step={1} value={player.bar} />
+            <p className="text-xs text-gray-400">BAR</p>
+          </div>
           <div>
             <input disabled className="text-gray-200" type="number" min={1} max={300} step={1} value={player.beat} />
             <p className="text-xs text-gray-400">BEAT</p>

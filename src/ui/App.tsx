@@ -1,19 +1,17 @@
 // @deno-types="npm:@types/react@19"
 import { useState } from "react";
 
-import { Track } from "@core/types.ts";
 import { StateCtx, stateCtx } from "../core/context.ts";
 
-import { TabBar } from "./TabBar/TabBar.tsx";
-import { PlayControls } from "./PlayControls/PlayControls.tsx";
-import { TrackPlayer } from "./TrackPlayer/TrackPlayer.tsx";
-import { TrackList } from "./TrackList/TrackList.tsx";
-import { TrackControls } from "@ui/TrackControls/TrackControls.tsx";
+import { TabBar } from "./panels/TabBar.tsx";
+import { PlayControls } from "./panels/PlayControls.tsx";
+import { Timeline } from "./panels/Timeline.tsx";
+import { TrackList } from "./panels/TrackList.tsx";
+import { TrackControls } from "./panels/TrackControls.tsx";
 
 function App() {
 
   const [ctx, setCtx] = useState(stateCtx);
-  const [tracks, setTracks] = useState<Track[]>([]);
 
   return (
     <StateCtx.Provider value={{...ctx, S: setCtx}}>
@@ -22,12 +20,12 @@ function App() {
         <PlayControls />
 
         <div className="flex w-full h-[90vh]">
-          <TrackList tracks={tracks} setTracks={setTracks} />
+          <TrackList />
 
           <div className="flex flex-col w-full">
-            <TrackPlayer tracks={tracks} setTracks={setTracks} />
+            <Timeline />
             <div className="h-[300px]">
-              <TrackControls tracks={tracks} setTracks={setTracks} />
+              <TrackControls />
             </div>
           </div>
         </div>

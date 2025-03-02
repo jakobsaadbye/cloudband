@@ -1,12 +1,6 @@
-import { Track } from "@core/types.ts";
 import { useCtx } from "../../core/context.ts";
 
-type Props = {
-    tracks: Track[]
-    setTracks: (ts: Track[]) => void
-}
-
-export const TrackControls = ({ tracks, setTracks } : Props) => {
+export const TrackControls = () => {
 
     const ctx = useCtx();
     const P = ctx.player;
@@ -17,6 +11,7 @@ export const TrackControls = ({ tracks, setTracks } : Props) => {
                 <p className="text-white">Track</p>
             </header>
             <section className="flex p-2 gap-4">
+                <input type="checkbox" checked={P.sweepEnabled} onChange={e => P.SetSweepEnabled(ctx, !P.sweepEnabled)} />
                 <div className="flex gap-x-2">
                     <p>Attack</p>
                     <input type="range" min={0} max={1} value={P.attackTime} step={0.1} onChange={(e) => P.SetAttackTime(ctx, +e.target.value)} />
@@ -29,6 +24,7 @@ export const TrackControls = ({ tracks, setTracks } : Props) => {
                 </div>
             </section>
             <section className="flex p-2 gap-4">
+                <input type="checkbox" checked={P.pulseEnabled} onChange={e => P.SetPulseEnabled(ctx, !P.pulseEnabled)} />
                 <div className="flex gap-x-2">
                     <p>Pulse Hz</p>
                     <input type="range" min={0} max={1000} value={P.pulseHz} step={10} onChange={(e) => P.SetPulseHz(ctx, +e.target.value)} />
@@ -41,6 +37,7 @@ export const TrackControls = ({ tracks, setTracks } : Props) => {
                 </div>
             </section>
             <section className="flex p-2 gap-4">
+                <input type="checkbox" checked={P.noiceEnabled} onChange={e => P.SetNoiceEnabled(ctx, !P.noiceEnabled)} />
                 <div className="flex gap-x-2">
                     <p>Noice duration</p>
                     <input type="range" min={0.1} max={2} value={P.noiceDuration} step={0.1} onChange={(e) => P.SetNoiceDuration(ctx, +e.target.value)} />
