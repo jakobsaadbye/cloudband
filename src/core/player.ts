@@ -1,11 +1,12 @@
-import { Note } from "@core/note.ts";
-import { Context, audioContext } from "@core/context.ts";
 import { wavetable } from "@core/wavetable.ts";
+import { Context, audioContext } from "@core/context.ts";
 import { TrackList } from "@core/track.ts";
-
+import { PlayerInput } from "@core/input.ts";
 
 class Player {
     trackList: TrackList
+
+    input: PlayerInput
 
     volumer: GainNode;
     panner: StereoPannerNode;
@@ -23,7 +24,6 @@ class Player {
     timerID: number;
 
     lookahead: number
-    scheduleAheadTime: number
 
     startedAt: number
     pausedAt: number
@@ -42,6 +42,8 @@ class Player {
 
     constructor(trackList: TrackList) {
         this.trackList = trackList;
+
+        this.input = new PlayerInput();
 
         this.volumer = new GainNode(audioContext);
         this.panner = new StereoPannerNode(audioContext, { pan : 0 });
@@ -185,19 +187,11 @@ class Player {
         this.recalibrateBarAndBeat(ctx);
 
         for (const track of this.trackList.tracks) {
-            const offset = this.elapsedTime;
-            let when = 2 - this.elapsedTime;
-            if (when < 0) when = 0;
-
-            track.Play(ctx, when, offset);
+            track.Play(ctx);
         }
 
         // We wait to play the next note untill the next beat so that we stay in sync
-        const t = this.elapsedTime;
-        const bps = 60.0 / this.tempo;
-        const timeTillNextBeat = bps - t % bps;
-
-        this.nextNoteTime = audioContext.currentTime + timeTillNextBeat;
+        this.nextNoteTime = audioContext.currentTime + this.getTimeUntilNextBeet();
         this.scheduler(ctx);
     }
 
@@ -223,11 +217,42 @@ class Player {
         ctx.S({...ctx});
     }
 
+    ForwardOne(ctx: Context) {
+        this.startedAt = audioContext.currentTime;
+        this.PausePlay(ctx);
+
+        const bps = 240.0 / this.tempo;
+        const nextBar = Math.ceil((this.elapsedTime + 0.000001) / bps); // Add a little unnotizable fuzz so that it move into the next bar when being 0.0
+        this.elapsedTime = nextBar * bps;
+        this.recalibrateBarAndBeat(ctx);
+    }
+
+    RewindOne(ctx: Context) {
+        const elapsedTime = this.elapsedTime;
+        this.PausePlay(ctx);
+
+        const bps = 240.0 / this.tempo;
+        const prevBar = Math.floor((elapsedTime - 0.000001) / bps);
+        this.elapsedTime = prevBar * bps;
+
+        if (this.elapsedTime < 0) {
+            this.elapsedTime = 0;
+        }
+
+        this.recalibrateBarAndBeat(ctx);
+    }
+
+    getTimeUntilNextBeet() {
+        const t = this.elapsedTime + 0.000001;
+        const bps = 60.0 / this.tempo;
+        return bps - t % bps;
+    }
+
     recalibrateBarAndBeat(ctx: Context) {
         const secondsPerBeat = 60.0 / this.tempo;
         const secondsPerBar = 240.0 / this.tempo;
 
-        const t = this.GetCurrentTime();
+        const t = this.GetCurrentTime() + 0.000001;
 
         this.bar  = 1 + Math.floor(t / secondsPerBar);
         this.beat = 1 + (Math.floor(t / secondsPerBeat) % 4);

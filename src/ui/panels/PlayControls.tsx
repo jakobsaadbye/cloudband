@@ -17,7 +17,9 @@ export const PlayControls = () => {
   useEffect(() => {
     const handleKeyboardInput = (e: KeyboardEvent) => {
       let handled = false;
+
       const key = e.key;
+
       if (key === " ") {
         handled = true;
         if (!player.isPlaying) {
@@ -26,9 +28,20 @@ export const PlayControls = () => {
           player.PausePlay(ctx);
         }
       }
+
       if (key === "Enter") {
         handled = true;
         player.ResetPlay(ctx);
+      }
+
+      if (key === ".") {
+        handled = true;
+        player.ForwardOne(ctx);
+      }
+
+      if (key === ",") {
+        handled = true;
+        player.RewindOne(ctx);
       }
 
       if (handled) {
@@ -85,12 +98,12 @@ export const PlayControls = () => {
       <div className="flex gap-x-8 w-1/3">
         <div className="flex">
           <icon.VolumeUp className={twMerge(iconStyle)} />
-          <input type="range" min={0} max={2} value={player.volume} step={0.01} onChange={(e) => player.SetVolume(ctx, +e.target.value)} />
+          <input title="Master volume" type="range" min={0} max={2} value={player.volume} step={0.01} onChange={(e) => player.SetVolume(ctx, +e.target.value)} />
         </div>
-        <div className="flex items-center gap-x-2">
+        {/* <div className="flex items-center gap-x-2">
           <p>LR Pan:</p>
           <input type="range" min={-1} max={+1} value={player.pan} step={0.01} onChange={(e) => player.SetPan(ctx, +e.target.value)} />
-        </div>
+        </div> */}
       </div>
     </section>
   )

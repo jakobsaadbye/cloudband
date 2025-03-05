@@ -13,11 +13,11 @@ const db = await createDb("cloudband.db");
 
 
 createRoot(document.getElementById('root') as HTMLElement).render(
-  <StrictMode>
+  // <StrictMode>
     <SqliteContext.Provider value={db}>
       <Inspector>
         <App />
       </Inspector>
     </SqliteContext.Provider>
-  </StrictMode>,
+  // </StrictMode>,
 )

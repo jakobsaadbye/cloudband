@@ -1,6 +1,7 @@
 // @deno-types="npm:@types/react@19"
 import { useEffect, useState } from "react";
-import { audioContext, Context, useCtx } from "@core/context.ts";
+import { Context, useCtx } from "@core/context.ts";
+import { Region, RF } from "@core/track.ts";
 
 type Canvas2D = CanvasRenderingContext2D;
 
@@ -13,19 +14,52 @@ const DrawLine = (ctx: Canvas2D, x0: number, y0: number, x1: number, y1: number,
   ctx.stroke();
 }
 
+const DrawRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, style = "#000000", alpha = 1.0) => {
+  const prevAlpha = ctx.globalAlpha;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = style;
+  ctx.fillRect(x, y, width, height);
+  ctx.globalAlpha = prevAlpha;
+}
+
+const DrawStrokedRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, strokeStyle = "#000000", fillStyle = "#000000", thickness = 1.0, alpha = 1.0) => {
+  x += thickness / 2;
+  y += thickness / 2;
+  width -= thickness / 2;
+  height -= thickness / 2;
+
+  DrawRectangle(ctx, x, y, width, height, fillStyle, alpha);
+
+  const prevAlpha = ctx.globalAlpha;
+
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = thickness;
+  ctx.strokeStyle = strokeStyle;
+  ctx.strokeRect(x, y, width, height);
+
+  ctx.globalAlpha = prevAlpha;
+}
+
+const regionColorPresets = [
+  "#ffca69",
+  "#69aaff",
+  "#4fd663",
+  "#e3e332",
+  "#f55f5f",
+  "#d45ff5",
+];
+
 let zoomScale = 0;
 
 const MAX_BAR_WIDTH = 1000;
 const MIN_BAR_WIDTH = 100;
 
 const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, state: Context) => {
-
-
   const WIDTH = canvas.width;
   const HEIGHT = canvas.height;
-  const TRACK_HEIGHT = 60;
   const TOP_BAR_HEIGHT = 80;
   const PLAYHEAD_Y = TOP_BAR_HEIGHT / 2;
+  const TRACK_START = TOP_BAR_HEIGHT;
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
@@ -40,8 +74,9 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
   // Bar and beat divider
   DrawLine(ctx, 0, PLAYHEAD_Y, WIDTH, PLAYHEAD_Y, "#505050");
 
-  // Bars
   const barWidth = zoom;
+
+  // Bars
   {
     let i = 0;
     let x = 0;
@@ -65,25 +100,256 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
     }
   }
 
+  canvas.style.cursor = "default";
+
+  //
+  // Track regions
+  //
+  {
+    const trackHeight = 192;
+    for (let i = 0; i < state.trackList.tracks.length; i++) {
+      const track = state.trackList.tracks[i];
+
+      for (const region of track.regions) {
+        if (region.deleted) continue;
+
+        const secondsPerBar = 240.0 / state.player.tempo;
+
+        const x = region.start / secondsPerBar * barWidth;
+        const y = i * trackHeight + TRACK_START;
+        const width = region.duration / secondsPerBar * barWidth;
+        const height = trackHeight;
+
+        const bgColor = regionColorPresets[i];
+        let outline = "#303030";
+        if (region.flags & RF.selected) {
+          outline = "#FFFFFF";
+        }
+
+        DrawStrokedRectangle(ctx, x, y, width, height, outline, bgColor, 2);
+
+        const fontSize = 28;
+        ctx.font = fontSize + "px serif";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(track.file.name, x + 4, y + 2 + fontSize);
+
+        // @Note - We save the calculated boundaries of the region so that we don't have to calculate 
+        // them again in input handling where we need to know the boundaries of the region to do click events and such.
+        region.x = x;
+        region.y = y;
+        region.width = width;
+        region.height = trackHeight;
+
+        // Frequency visualization
+        const frequencyData = track.frequencyData;
+
+        ctx.fillStyle = "#FFFFFF";
+
+        const regionWidthBeforeCutting = region.totalDuration / secondsPerBar * barWidth;
+        const cuttedX = region.offsetStart / secondsPerBar * barWidth;
+        const lineWidth = regionWidthBeforeCutting / frequencyData.length;
+        for (let i = 0; i < frequencyData.length; i++) {
+          const lineHeight = Math.abs(frequencyData[i] * region.height*0.90);
+          const x = (region.x - cuttedX) + i * lineWidth;
+
+          if (x < region.x || x > region.x + region.width) continue;
+
+          const y = region.y + region.height/2 - lineHeight/2;
+          ctx.fillRect(x, y, lineWidth, lineHeight);
+        }
+
+        // Cursor style
+        if (region.Is(RF.hovered)) {
+          canvas.style.cursor = "move";
+        }
+        if (region.Is(RF.hoveredEnds)) {
+          canvas.style.cursor = "col-resize";
+        }
+      }
+    }
+  }
+
   // Playhead
   {
     const t = state.player.GetCurrentTime();
 
-    const thickness = 6;
+    const thickness = 3;
     const tempo = state.player.tempo;
     const secondsPerBar = 240.0 / tempo;
 
 
-    const x = (t / secondsPerBar) * barWidth + thickness*0.5;
+    const x = (t / secondsPerBar) * barWidth + thickness * 0.5;
     const y = PLAYHEAD_Y;
     DrawLine(ctx, x, y, x, HEIGHT, "white", thickness);
 
   }
+}
 
-  // Track regions
-  {
+const CollisionPointRect = (px: number, py: number, x: number, y: number, width: number, height: number) => {
+  if (px >= x && px <= x + width) {
+    if (py >= y && py <= y + height) {
+      return true;
+    }
+  }
 
-    // for ()
+  return false;
+}
+
+const handleInput = (e: MouseEvent, state: Context, zoom: number) => {
+
+  const input = state.player.input;
+
+  //
+  // Keyboard input
+  //
+  if (e.type === "keypress" || e.type === "keydown") {
+    const ev = e as KeyboardEvent;
+    let handled = false;
+    const key = ev.key;
+    
+    
+    if (ev.ctrlKey && key === "c") {
+      handled = true;
+      input.CopyRegion(state);
+    }
+
+    if (ev.ctrlKey && key === "v") {
+      handled = true;
+      input.PasteRegion(state);
+    }
+
+    if (key === "Backspace") {
+      handled = true;
+      input.DeleteRegion(state);
+    }
+
+    if (handled) {
+      e.preventDefault();
+    }
+  }
+
+  //
+  // Mouse input related controls
+  //
+  const dpi = window.devicePixelRatio;
+  const mouseX = e.offsetX * dpi;
+  const mouseY = e.offsetY * dpi;
+
+  const barWidth = zoom;
+  const cropWidth = 20;
+
+  //
+  // Region controls
+  //
+  const tracks = state.trackList.tracks;
+  for (let i = 0; i < tracks.length; i++) {
+    const track = tracks[i];
+
+    for (const region of track.regions) {
+      if (region.deleted) continue;
+
+      if (CollisionPointRect(mouseX, mouseY, region.x, region.y, region.width, region.height)) {
+        region.flags |= RF.hovered;
+
+        if (mouseX < region.x + cropWidth || mouseX > (region.x + region.width) - cropWidth) {
+          region.flags |= RF.hoveredEnds;
+        } else {
+          region.Unset(RF.hoveredEnds);
+        }
+
+        if (e.type === "mousedown") {
+          region.flags |= RF.selected;
+          input.selectedTrack = track;
+          input.selectedRegion = region;
+
+          // Are we cropping or shifting the region?
+          if (mouseX < region.x + cropWidth) {
+            region.flags |= RF.croppingLeft;
+          } else if (mouseX > (region.x + region.width) - cropWidth) {
+            region.flags |= RF.croppingRight;
+          } else {
+            region.flags |= RF.shifting;
+          }
+
+          region.dragX = mouseX;
+          region.dragY = mouseY;
+          region.originalOffsetStart = region.offsetStart;
+          region.originalStart = region.start;
+          region.originalEnd = region.end;
+        }
+      } else {
+        region.Unset(RF.hovered);
+        region.Unset(RF.hoveredEnds);
+        if (e.type === "mousedown") {
+          region.flags = 0;
+          input.ResetSelection(state);
+        }
+      }
+
+      if (e.type === "mouseup") {
+        if (region.Is(RF.held)) {
+          region.flags = RF.selected;
+        }
+      }
+
+      if (e.type === "mousemove") {
+        if (region.Is(RF.held)) {
+
+          const dragOffsetX = mouseX - region.dragX;
+
+          const barsDragged = dragOffsetX / barWidth;
+          const secondsPerBar = 240.0 / state.player.tempo;
+
+          const durationDragged = barsDragged * secondsPerBar;
+
+          if (region.Is(RF.croppingLeft)) {
+            const prevStart = region.start;
+            const prevOffsetStart = region.offsetStart;
+
+            region.offsetStart = region.originalOffsetStart + durationDragged;
+            region.start       = region.originalStart + durationDragged;
+
+            if (region.start < 0) {
+              region.start = 0
+            }
+            if (region.offsetStart < 0) {
+              region.offsetStart = 0;
+            }
+
+            let illegal = false;
+            if (region.duration > region.totalDuration) illegal = true;
+            else if (region.duration < 0.001) illegal = true;
+            if (illegal) {
+              region.start = prevStart;
+              region.offsetStart = prevOffsetStart;
+            }
+
+          } else if (region.Is(RF.croppingRight)) {
+            const prevEnd = region.end;
+            region.end = region.originalEnd + durationDragged;
+
+            let illegal = false;
+            if (region.duration > region.totalDuration) illegal = true;
+            if (region.duration < 0.001) illegal = true;
+
+            if (illegal) {
+              region.end = prevEnd;
+            }
+
+          } else if (region.Is(RF.shifting)) {
+            const prevEnd = region.end;
+
+            region.start = region.originalStart + durationDragged;
+            region.end = region.originalEnd + durationDragged;
+
+            if (region.start < 0) {
+              region.start = 0;
+              region.end = prevEnd;
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -108,11 +374,21 @@ export const Timeline = () => {
       drawOneFrame(canvas, ctx, zoom, state);
       frameId = requestAnimationFrame(renderLoop);
     }
-
     frameId = requestAnimationFrame(renderLoop);
+
+    canvas.addEventListener("keydown", (e: KeyboardEvent) => handleInput(e, state, zoom));
+    canvas.addEventListener("keypress", (e: KeyboardEvent) => handleInput(e, state, zoom));
+    canvas.addEventListener("mousemove", (e: MouseEvent) => handleInput(e, state, zoom));
+    canvas.addEventListener("mousedown", (e: MouseEvent) => handleInput(e, state, zoom));
+    canvas.addEventListener("mouseup", (e: MouseEvent) => handleInput(e, state, zoom));
 
     return () => {
       cancelAnimationFrame(frameId);
+      canvas.removeEventListener("keydown", handleInput);
+      canvas.removeEventListener("keypress", handleInput);
+      canvas.removeEventListener("mousemove", handleInput);
+      canvas.removeEventListener("mousedown", handleInput);
+      canvas.removeEventListener("mouseup", handleInput);
     };
   }, [zoom]);
 
@@ -135,7 +411,7 @@ export const Timeline = () => {
 
   return (
     <div id="pinch-target" className="w-auto h-full overflow-auto touch-none">
-      <canvas id="track-canvas" className="w-[5000px] h-[5000px]" />
+      <canvas tabIndex={0} id="track-canvas" className="w-[5000px] h-[5000px] outline-none" />
     </div>
   )
 }

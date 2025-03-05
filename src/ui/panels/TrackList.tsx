@@ -1,5 +1,6 @@
 import { audioElement, useCtx } from "../../core/context.ts";
 import { Track } from "@core/track.ts";
+import { useIcons } from "@ui/hooks/useIcons.tsx";
 
 export const TrackList = () => {
 
@@ -24,7 +25,7 @@ export const TrackList = () => {
             if (!files) return;
 
             for (const file of files) {
-                const track = new Track("line", file);
+                const track = new Track("audio", file);
 
                 trackList.LoadTrack(ctx, track);
             }
@@ -50,9 +51,23 @@ type CardProps = {
 }
 
 const TrackCard = ({ track }: CardProps) => {
+    const ctx = useCtx();
+
+    const { VolumeUp } = useIcons();
+
     return (
-        <div className="w-full h-24 p-2 flex justify-center items-center bg-gray-100 border-b-1 border-gray-400">
-            <p className="select-none">{track.file.name}</p>
+        <div className="flex items-center justify-between w-full h-24 p-2 bg-gray-100 border-b-1 border-gray-400">
+            <p className="text-sm select-none">{track.file.name}</p>
+            <div className="flex gap-x-2">
+                <div className="flex gap-x-1">
+                    <VolumeUp className="w-6 h-6 fill-gray-600" />
+                    <input title="Volume" className="w-16" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} />
+                </div>
+                <div className="flex gap-x-1 items-center">
+                    <p className="text-sm text-center">LR</p>
+                    <input title="Pan" className="w-16" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
+                </div>
+            </div>
         </div>
     )
 }
