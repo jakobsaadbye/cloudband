@@ -1,22 +1,28 @@
 import { audioContext, Context } from "@core/context.ts";
-import { off } from "node:process";
+import { generateId } from "@core/id.ts";
 
 type TrackKind = 'audio' | 'midi'
 
 class Track {
+    id: string
+    projectId: string
     kind: TrackKind
-    
+
     volumer: GainNode
     panner: StereoPannerNode
     analyser: AnalyserNode
     frequencyData: Float32Array | null
 
+    filename: string
     file: File
+    audioData: AudioBuffer | null
     isLoaded: boolean
-    
+
     regions: Region[]
 
-    constructor(kind: TrackKind, file: File) {
+    constructor(kind: TrackKind, file: File, projectId: string) {
+        this.id = generateId();
+        this.projectId = projectId;
         this.kind = kind;
 
         this.volumer = new GainNode(audioContext, { gain: 0.5 });
@@ -26,10 +32,12 @@ class Track {
         this.analyser = result.analyser;
         this.frequencyData = null;
 
+        this.filename = file.name;
         this.file = file;
+        this.audioData = null;
         this.isLoaded = false;
 
-        this.regions = [new Region()];
+        this.regions = [];
     }
 
     initAnalyser() {
@@ -55,7 +63,7 @@ class Track {
 
     Play(ctx: Context) {
         if (!this.isLoaded) {
-            console.warn(`Track ${this.file.name} has not yet been loaded`);
+            console.warn(`Track has not yet been loaded`);
             return;
         }
 
@@ -72,63 +80,71 @@ class Track {
 
     SetVolume(ctx: Context, value: number) {
         this.volumer.gain.value = value;
-        ctx.S({...ctx});
+        ctx.S({ ...ctx });
     }
 
     SetPan(ctx: Context, value: number) {
         this.panner.pan.value = value;
-        ctx.S({...ctx});
+        ctx.S({ ...ctx });
     }
 }
 
 const RF = { // Region_Flags
-    none    : 0,
-    hovered : 1,
-    hoveredEnds : 2,
-    shifting : 4,
-    croppingLeft  : 8,
-    croppingRight : 16,
-    selected : 32,
+    none: 0,
+    hovered: 1,
+    hoveredEnds: 2,
+    shifting: 4,
+    croppingLeft: 8,
+    croppingRight: 16,
+    selected: 32,
 
-    held : 4 | 8 | 16,
+    held: 4 | 8 | 16,
 }
 
 class Region {
+    id: string
+    projectId: string
+    trackId: string
     data: AudioBuffer | null
     source: AudioBufferSourceNode | null;
 
-    offsetStart: number // Tells how much is cut from the start
+    offsetStart: number // Number of seconds cut from the left
     offsetEnd: number
-    start: number // Number of seconds after the track begins to play
+    start: number // When the region begins to play
     end: number
     totalDuration: number
-    started: boolean
 
-    x : number
-    y : number
-    width : number
-    height : number
-
-    dragX : number
-    dragY : number
-
-    originalOffsetStart: number
-    originalStart: number
-    originalEnd: number
-    
-    flags : number // of Region_Flags
+    flags: number // of Region_Flags
     deleted: boolean
 
-    constructor() {
+    x: number
+    y: number
+    width: number
+    height: number
+
+    dragX: number
+    dragY: number
+
+    originalOffsetStart: number
+    originalOffsetEnd: number
+    originalStart: number
+    originalEnd: number
+
+    constructor(trackId: string, projectId: string) {
+        this.id = generateId();
+        this.trackId = trackId;
+        this.projectId = projectId;
         this.data = null;
         this.source = null;
-        
+
         this.offsetStart = 0;
         this.offsetEnd = 0;
         this.start = 0.0;
         this.end = 0.0;
         this.totalDuration = 0.0;
-        this.started = true;
+
+        this.flags = RF.none;
+        this.deleted = false;
 
         // Ui stuff
         this.x = 0;
@@ -138,15 +154,13 @@ class Region {
         this.dragX = 0;
         this.dragY = 0;
         this.originalOffsetStart = 0;
+        this.originalOffsetEnd = 0;
         this.originalStart = 0;
         this.originalEnd = 0;
-
-        this.flags = RF.none;
-        this.deleted = false;
     }
 
     get duration() {
-        return (this.end - this.offsetEnd) - this.start;
+        return this.end - this.start;
     }
 
     Play(ctx: Context, track: Track) {
@@ -163,14 +177,14 @@ class Region {
         // Calculate when, offset and the duration the region should be playing 
         const elapsedTime = ctx.player.elapsedTime;
         const currentTime = audioContext.currentTime;
-        
+
         let offset = elapsedTime - this.start // + this.offsetStart;
         if (offset < 0) offset = 0;
         offset += this.offsetStart;
-        
+
         let when = currentTime + this.start - elapsedTime;
         if (when < 0) when = 0;
-        
+
         let duration = this.duration;
         if (elapsedTime > this.start) {
             duration = this.end - elapsedTime;
@@ -211,22 +225,52 @@ class TrackList {
         this.tracks = [];
     }
 
-    async LoadTrack(ctx: Context, track: Track) {
-        const arrayBuffer = await track.file.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    async LoadTrack(ctx: Context, track: Track, loadingFromFile: boolean) {
 
-        // The audio buffer within each region is shared
-        for (const region of track.regions) {
+        const fileContent = await track.file.arrayBuffer();
+
+        // Save the audio file to opfs under '/projects/{project-name}/tracks/{filename}'
+        if (!loadingFromFile) {
+            const opfsRoot = await navigator.storage.getDirectory();
+            
+            const projectsFolder = await opfsRoot.getDirectoryHandle("projects", { create: true });
+            const thisProjectFolder = await projectsFolder.getDirectoryHandle(ctx.project.name, { create: true });
+            const tracksFolder = await thisProjectFolder.getDirectoryHandle("tracks", { create: true });
+    
+            const fileHandle = await tracksFolder.getFileHandle(`${track.file.name}`, { create: true });
+            const fileWriter = await fileHandle.createWritable();
+            await fileWriter.write(new Uint8Array(fileContent));
+            await fileWriter.close();
+        }
+
+
+        const audioBuffer = await audioContext.decodeAudioData(fileContent);
+
+        // Make the first region
+        if (!loadingFromFile) {
+            const region = new Region(track.id, ctx.project.id);
             region.data = audioBuffer;
-
             region.start = 0.0;
             region.end = audioBuffer.duration;
             region.totalDuration = audioBuffer.duration;
+            track.regions.push(region);
         }
 
-        //
+        track.audioData = audioBuffer;
+
         // Load in the frequency data to be visualized
-        //
+        track.frequencyData = this.loadReducedFrequencyData(audioBuffer);
+
+        track.isLoaded = true;
+
+        this.tracks.push(track);
+
+        if (!loadingFromFile) {
+            ctx.S({ ...ctx });
+        }
+    }
+
+    loadReducedFrequencyData(audioBuffer: AudioBuffer) {
         const rawData = audioBuffer.getChannelData(0);
         const samples = 8000;
         const blockSize = Math.floor(rawData.length / samples);
@@ -253,20 +297,28 @@ class TrackList {
         for (let i = 0; i < reducedRawData.length; i++) {
             reducedRawData[i] = reducedRawData[i] * normal;
         }
-        track.frequencyData = reducedRawData;
-        //////
-        
-        track.isLoaded = true;
 
-        this.tracks.push(track);
+        return reducedRawData;
+    }
+}
 
-        ctx.S({...ctx});
+class Project {
+    id: string
+    name: string
+
+    constructor() {
+        this.id = generateId();
+        this.name = "unnamed";
     }
 }
 
 export {
-    Track,
-    TrackList,
-    Region,
-    RF,
-}
+  Track,
+  TrackList, 
+  Region,
+  RF,
+  Project
+};
+export type { 
+    TrackKind 
+};

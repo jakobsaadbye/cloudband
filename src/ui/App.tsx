@@ -1,18 +1,42 @@
 // @deno-types="npm:@types/react@19"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-import { StateCtx, stateCtx } from "../core/context.ts";
+import { Context, StateCtx, stateCtx } from "../core/context.ts";
 
 import { TabBar } from "./panels/TabBar.tsx";
 import { PlayControls } from "./panels/PlayControls.tsx";
 import { Timeline } from "./panels/Timeline.tsx";
-import { TrackList } from "./panels/TrackList.tsx";
 import { TrackControls } from "./panels/TrackControls.tsx";
+import { TrackList } from "./panels/TrackList.tsx";
+import { LoadProject } from "@/db/load.ts";
+import { useDB } from "@jakobsaadbye/teilen-sql/react";
 
 function App() {
 
   const [ctx, setCtx] = useState(stateCtx);
+  const db = useDB();
 
+  useEffect(() => {
+    const initializeProject = async () => {
+      const projectName = "unnamed";
+      try {
+        console.log(`Loading project '${projectName}' ...`);
+        
+        const context : Context = {...ctx, S: setCtx };
+
+        const success = await LoadProject(context, db, projectName);
+        if (!success) {
+          console.warn(`Failed to load project '${projectName}'`);
+          return;
+        }
+      } catch (e) {
+        console.warn(`Failed to load project '${projectName}'`, e);
+      }
+    }
+
+    initializeProject();
+  }, []);
+  
   return (
     <StateCtx.Provider value={{...ctx, S: setCtx}}>
       <main className="w-full h-full overflow-hidden">

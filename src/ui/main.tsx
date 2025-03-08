@@ -8,8 +8,10 @@ import App from './App.tsx'
 
 import { createDb } from "@jakobsaadbye/teilen-sql"
 import { SqliteContext, Inspector } from "@jakobsaadbye/teilen-sql/react"
+import { tables } from "@/db/tables.ts";
 
 const db = await createDb("cloudband.db");
+await db.exec(tables, []);
 
 
 createRoot(document.getElementById('root') as HTMLElement).render(

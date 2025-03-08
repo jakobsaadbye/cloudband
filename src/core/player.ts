@@ -2,8 +2,11 @@ import { wavetable } from "@core/wavetable.ts";
 import { Context, audioContext } from "@core/context.ts";
 import { TrackList } from "@core/track.ts";
 import { PlayerInput } from "@core/input.ts";
+import { generateId } from "@core/id.ts";
 
 class Player {
+    id: string
+    projectId: string
     trackList: TrackList
 
     input: PlayerInput
@@ -40,7 +43,9 @@ class Player {
         imag: wavetable.imag
     });
 
-    constructor(trackList: TrackList) {
+    constructor(trackList: TrackList, projectId: string) {
+        this.id = generateId();
+        this.projectId = projectId;
         this.trackList = trackList;
 
         this.input = new PlayerInput();
@@ -222,17 +227,18 @@ class Player {
         this.PausePlay(ctx);
 
         const bps = 240.0 / this.tempo;
-        const nextBar = Math.ceil((this.elapsedTime + 0.000001) / bps); // Add a little unnotizable fuzz so that it move into the next bar when being 0.0
+        const nextBar = Math.ceil((this.elapsedTime + 0.000001) / bps); // Add a little unnotizable fuzz so that it moves into the next bar when being 0.0
         this.elapsedTime = nextBar * bps;
         this.recalibrateBarAndBeat(ctx);
     }
 
     RewindOne(ctx: Context) {
-        const elapsedTime = this.elapsedTime;
-        this.PausePlay(ctx);
+        if (this.isPlaying) {
+            this.PausePlay(ctx);
+        }
 
         const bps = 240.0 / this.tempo;
-        const prevBar = Math.floor((elapsedTime - 0.000001) / bps);
+        const prevBar = Math.floor((this.elapsedTime - 0.000001) / bps);
         this.elapsedTime = prevBar * bps;
 
         if (this.elapsedTime < 0) {

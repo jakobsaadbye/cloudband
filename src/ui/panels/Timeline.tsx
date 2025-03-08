@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { Context, useCtx } from "@core/context.ts";
 import { Region, RF } from "@core/track.ts";
+import { useDB } from "@jakobsaadbye/teilen-sql/react";
+import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 
 type Canvas2D = CanvasRenderingContext2D;
 
@@ -195,27 +197,37 @@ const CollisionPointRect = (px: number, py: number, x: number, y: number, width:
   return false;
 }
 
-const handleInput = (e: MouseEvent, state: Context, zoom: number) => {
-
+const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoom: number) => {
   const input = state.player.input;
 
-  //
-  // Keyboard input
-  //
   if (e.type === "keypress" || e.type === "keydown") {
     const ev = e as KeyboardEvent;
     let handled = false;
     const key = ev.key;
-    
     
     if (ev.ctrlKey && key === "c") {
       handled = true;
       input.CopyRegion(state);
     }
 
+    if (ev.ctrlKey && key === "s") {
+      handled = true;
+      input.Save(db, state);
+    }
+
     if (ev.ctrlKey && key === "v") {
       handled = true;
       input.PasteRegion(state);
+    }
+
+    if (ev.ctrlKey && key === "z") {
+      handled = true;
+      input.Undo(state);
+    }
+
+    if (ev.ctrlKey && key === "y") {
+      handled = true;
+      input.Redo(state);
     }
 
     if (key === "Backspace") {
@@ -227,10 +239,12 @@ const handleInput = (e: MouseEvent, state: Context, zoom: number) => {
       e.preventDefault();
     }
   }
+}
 
-  //
-  // Mouse input related controls
-  //
+
+const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: number) => {
+  const input = state.player.input;
+
   const dpi = window.devicePixelRatio;
   const mouseX = e.offsetX * dpi;
   const mouseY = e.offsetY * dpi;
@@ -274,6 +288,7 @@ const handleInput = (e: MouseEvent, state: Context, zoom: number) => {
           region.dragX = mouseX;
           region.dragY = mouseY;
           region.originalOffsetStart = region.offsetStart;
+          region.originalOffsetEnd = region.offsetEnd;
           region.originalStart = region.start;
           region.originalEnd = region.end;
         }
@@ -306,8 +321,8 @@ const handleInput = (e: MouseEvent, state: Context, zoom: number) => {
             const prevStart = region.start;
             const prevOffsetStart = region.offsetStart;
 
-            region.offsetStart = region.originalOffsetStart + durationDragged;
             region.start       = region.originalStart + durationDragged;
+            region.offsetStart = region.originalOffsetStart + durationDragged;
 
             if (region.start < 0) {
               region.start = 0
@@ -326,7 +341,15 @@ const handleInput = (e: MouseEvent, state: Context, zoom: number) => {
 
           } else if (region.Is(RF.croppingRight)) {
             const prevEnd = region.end;
+            const prevOffsetEnd = region.offsetEnd;
+
             region.end = region.originalEnd + durationDragged;
+            region.offsetEnd = region.originalOffsetEnd + durationDragged;
+
+            if (region.offsetEnd > 0) {
+              region.offsetEnd = 0;
+              // region.end = prevEnd;
+            }
 
             let illegal = false;
             if (region.duration > region.totalDuration) illegal = true;
@@ -334,6 +357,7 @@ const handleInput = (e: MouseEvent, state: Context, zoom: number) => {
 
             if (illegal) {
               region.end = prevEnd;
+              region.offsetEnd = prevOffsetEnd;
             }
 
           } else if (region.Is(RF.shifting)) {
@@ -354,7 +378,7 @@ const handleInput = (e: MouseEvent, state: Context, zoom: number) => {
 }
 
 export const Timeline = () => {
-
+  const db = useDB();
   const state = useCtx();
   const [zoom, setZoom] = useState(MAX_BAR_WIDTH / 4);
 
@@ -376,21 +400,24 @@ export const Timeline = () => {
     }
     frameId = requestAnimationFrame(renderLoop);
 
-    canvas.addEventListener("keydown", (e: KeyboardEvent) => handleInput(e, state, zoom));
-    canvas.addEventListener("keypress", (e: KeyboardEvent) => handleInput(e, state, zoom));
-    canvas.addEventListener("mousemove", (e: MouseEvent) => handleInput(e, state, zoom));
-    canvas.addEventListener("mousedown", (e: MouseEvent) => handleInput(e, state, zoom));
-    canvas.addEventListener("mouseup", (e: MouseEvent) => handleInput(e, state, zoom));
+    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(e, db, state, zoom);
+    const handleKeyboardInputCallback = (e: KeyboardEvent) => handleKeyboardInput(e, db, state, zoom);
+
+    document.addEventListener("keydown", handleKeyboardInputCallback);
+    document.addEventListener("keypress", handleKeyboardInputCallback);
+    document.addEventListener("mousemove", handleMouseInputCallback);
+    document.addEventListener("mousedown", handleMouseInputCallback);
+    document.addEventListener("mouseup", handleMouseInputCallback);
 
     return () => {
       cancelAnimationFrame(frameId);
-      canvas.removeEventListener("keydown", handleInput);
-      canvas.removeEventListener("keypress", handleInput);
-      canvas.removeEventListener("mousemove", handleInput);
-      canvas.removeEventListener("mousedown", handleInput);
-      canvas.removeEventListener("mouseup", handleInput);
+      document.removeEventListener("keydown", handleKeyboardInputCallback);
+      document.removeEventListener("keypress", handleKeyboardInputCallback);
+      document.removeEventListener("mousemove", handleMouseInputCallback);
+      document.removeEventListener("mousedown", handleMouseInputCallback);
+      document.removeEventListener("mouseup", handleMouseInputCallback);
     };
-  }, [zoom]);
+  }, [zoom, state]);
 
   // Pinch to zoom
   useEffect(() => {

@@ -25,9 +25,8 @@ export const TrackList = () => {
             if (!files) return;
 
             for (const file of files) {
-                const track = new Track("audio", file);
-
-                trackList.LoadTrack(ctx, track);
+                const track = new Track("audio", file, ctx.project.id);
+                trackList.LoadTrack(ctx, track, false);
             }
         }
     }
