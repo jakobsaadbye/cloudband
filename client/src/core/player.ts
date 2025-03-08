@@ -1,8 +1,8 @@
-import { wavetable } from "@core/wavetable.ts";
-import { Context, audioContext } from "@core/context.ts";
-import { TrackList } from "@core/track.ts";
-import { PlayerInput } from "@core/input.ts";
-import { generateId } from "@core/id.ts";
+import { wavetable } from "./wavetable.ts";
+import { Context, audioContext } from "./context.ts";
+import { TrackList } from "./track.ts";
+import { PlayerInput } from "./input.ts";
+import { generateId } from "./id.ts";
 
 class Player {
     id: string

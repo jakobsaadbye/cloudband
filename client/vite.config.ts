@@ -15,8 +15,9 @@ export default defineConfig({
     fs: {
       allow: [
         path.resolve(__dirname),
-        path.resolve(__dirname + "/../../../"), // @Temporary - This will not be needed if teilen-sql was made into an npm package such that it could live in this project
-        path.resolve(__dirname + "/../../../src/react/index.ts"), // @Temporary - This will not be needed if teilen-sql was made into an npm package such that it could live in this project
+        path.resolve(__dirname + "/../common/"),
+        path.resolve(__dirname + "/../../../"),
+        path.resolve(__dirname + "/../../../src/react/index.ts"),
       ]
     }
   },

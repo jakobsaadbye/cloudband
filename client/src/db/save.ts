@@ -1,7 +1,7 @@
 import { SqliteDB, sqlPlaceholders } from "@jakobsaadbye/teilen-sql";
-import { Context } from "@core/context.ts";
-import { Player } from "@core/player.ts";
-import { Project, Region, Track } from "@core/track.ts";
+import { Context } from "../core/context.ts";
+import { Player } from "../core/player.ts";
+import { Project, Region, Track } from "../core/track.ts";
 
 export const SaveEntireProject = async (db: SqliteDB, ctx: Context) => {
     
@@ -18,7 +18,7 @@ export const SaveEntireProject = async (db: SqliteDB, ctx: Context) => {
 }
 
 const SaveProject = async (db: SqliteDB, project: Project) => {
-    const err = await db.exec(`
+    const err = await db.execTrackChanges(`
         INSERT INTO "projects" (
             id,
             name
@@ -35,7 +35,7 @@ const SaveProject = async (db: SqliteDB, project: Project) => {
 }
 
 const SavePlayer = async (db: SqliteDB, player: Player) => {
-    const err = await db.exec(`
+    const err = await db.execTrackChanges(`
         INSERT INTO "players" (
             id,
             project_id,
@@ -69,8 +69,8 @@ const SavePlayer = async (db: SqliteDB, player: Player) => {
 }
 
 const SaveTrack = async (db: SqliteDB, track: Track) => {
-    const err = await db.exec(`
-        INSERT OR REPLACE INTO "tracks" (
+    const err = await db.execTrackChanges(`
+        INSERT INTO "tracks" (
             id,
             project_id,
             volume,
@@ -113,8 +113,8 @@ const SaveRegions = async (db: SqliteDB, regions: Region[]) => {
         return vals
     }, [] as any[]);
 
-    const err = await db.exec(`
-        INSERT OR REPLACE INTO "regions" (
+    const err = await db.execTrackChanges(`
+        INSERT INTO "regions" (
             id,
             project_id,
             track_id,

@@ -1,5 +1,5 @@
-import { audioContext, Context } from "@core/context.ts";
-import { generateId } from "@core/id.ts";
+import { audioContext, Context } from "./context.ts";
+import { generateId } from "./id.ts";
 
 type TrackKind = 'audio' | 'midi'
 

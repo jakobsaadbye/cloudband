@@ -1,5 +1,5 @@
-import { Region, Track } from "@core/track.ts";
-import { Context } from "@core/context.ts";
+import { Region, Track } from "./track.ts";
+import { Context } from "./context.ts";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 import { SaveEntireProject } from "../db/save.ts";
 

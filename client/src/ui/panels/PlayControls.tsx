@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { useIcons } from "../hooks/useIcons.tsx";
-import { useCtx, Context } from "@core/context.ts";
+import { useCtx, Context } from "../../core/context.ts";
 
 export const PlayControls = () => {
 

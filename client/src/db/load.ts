@@ -1,10 +1,10 @@
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
-import { ProjectRow, PlayerRow, RegionRow, TrackRow } from "@/db/types.ts";
-import { Player } from "@core/player.ts";
-import { Project, TrackKind, TrackList } from "@core/track.ts";
-import { Context } from "@core/context.ts";
-import { Track } from "@core/track.ts";
-import { Region } from "@core/track.ts";
+import { ProjectRow, PlayerRow, RegionRow, TrackRow } from "./types.ts";
+import { Player } from "../core/player.ts";
+import { Project, TrackKind, TrackList } from "../core/track.ts";
+import { Context } from "../core/context.ts";
+import { Track } from "../core/track.ts";
+import { Region } from "../core/track.ts";
 
 const LoadProject = async (ctx: Context, db: SqliteDB, name: string) => {
     const projectRow = await db.first<ProjectRow>(`SELECT * FROM "projects" WHERE name = ?`, [name]);
@@ -16,7 +16,7 @@ const LoadProject = async (ctx: Context, db: SqliteDB, name: string) => {
     const project = new Project();
     project.id = projectRow.id;
     project.name = projectRow.name;
-    
+
 
     const playerRow = await db.first<PlayerRow>(`SELECT * FROM "players" WHERE project_id = ?`, [project.id]);
     if (!playerRow) {

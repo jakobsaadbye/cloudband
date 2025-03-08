@@ -8,7 +8,7 @@ import { PlayControls } from "./panels/PlayControls.tsx";
 import { Timeline } from "./panels/Timeline.tsx";
 import { TrackControls } from "./panels/TrackControls.tsx";
 import { TrackList } from "./panels/TrackList.tsx";
-import { LoadProject } from "@/db/load.ts";
+import { LoadProject } from "../db/load.ts";
 import { useDB } from "@jakobsaadbye/teilen-sql/react";
 
 function App() {
