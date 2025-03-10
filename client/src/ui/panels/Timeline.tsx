@@ -1,5 +1,5 @@
 // @deno-types="npm:@types/react@19"
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Context, useCtx } from "@core/context.ts";
 import { Region, RF } from "@core/track.ts";
 import { useDB } from "@jakobsaadbye/teilen-sql/react";
@@ -56,14 +56,14 @@ let zoomScale = 0;
 const MAX_BAR_WIDTH = 1000;
 const MIN_BAR_WIDTH = 100;
 
-const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, state: Context) => {
-  const WIDTH = canvas.width;
-  const HEIGHT = canvas.height;
+const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, state: Context, scrollX: number, scrollY: number) => {
+  const WIDTH = canvas.width + scrollX;
+  const HEIGHT = canvas.height + scrollY;
+
   const TOP_BAR_HEIGHT = 80;
   const PLAYHEAD_Y = TOP_BAR_HEIGHT / 2;
   const TRACK_START = TOP_BAR_HEIGHT;
 
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   // Background
   ctx.fillStyle = "#AAAAAA";
@@ -151,12 +151,12 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
         const cuttedX = region.offsetStart / secondsPerBar * barWidth;
         const lineWidth = regionWidthBeforeCutting / frequencyData.length;
         for (let i = 0; i < frequencyData.length; i++) {
-          const lineHeight = Math.abs(frequencyData[i] * region.height*0.90);
+          const lineHeight = Math.abs(frequencyData[i] * region.height * 0.90);
           const x = (region.x - cuttedX) + i * lineWidth;
 
           if (x < region.x || x > region.x + region.width) continue;
 
-          const y = region.y + region.height/2 - lineHeight/2;
+          const y = region.y + region.height / 2 - lineHeight / 2;
           ctx.fillRect(x, y, lineWidth, lineHeight);
         }
 
@@ -183,7 +183,6 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
     const x = (t / secondsPerBar) * barWidth + thickness * 0.5;
     const y = PLAYHEAD_Y;
     DrawLine(ctx, x, y, x, HEIGHT, "white", thickness);
-
   }
 }
 
@@ -204,7 +203,7 @@ const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoo
     const ev = e as KeyboardEvent;
     let handled = false;
     const key = ev.key;
-    
+
     if (ev.ctrlKey && key === "c") {
       handled = true;
       input.CopyRegion(state);
@@ -321,7 +320,7 @@ const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: num
             const prevStart = region.start;
             const prevOffsetStart = region.offsetStart;
 
-            region.start       = region.originalStart + durationDragged;
+            region.start = region.originalStart + durationDragged;
             region.offsetStart = region.originalOffsetStart + durationDragged;
 
             if (region.start < 0) {
@@ -382,24 +381,95 @@ export const Timeline = () => {
   const state = useCtx();
   const [zoom, setZoom] = useState(MAX_BAR_WIDTH / 4);
 
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [canvasCtx, setCanvasCtx] = useState<Canvas2D | null>(null);
+  const [viewport, setViewport] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
+
+  const [scrollX, setScrollX] = useState(0);
+  const [scrollY, setScrollY] = useState(0);
+
   useEffect(() => {
     const canvas: HTMLCanvasElement = document.getElementById("track-canvas");
 
     // Canvas for some reason does not by default account for the dpi of the device, resulting in blurry everything, sigh ...
     // Thanks to https://medium.com/@mikeeustace_47705/this-fixed-the-blur-problem-for-me-thank-you-986fbfe6b39a for a solution to that
-    let dpi = window.devicePixelRatio;
+    const dpi = window.devicePixelRatio;
     canvas.setAttribute("height", `${canvas.clientHeight * dpi}`);
     canvas.setAttribute("width", `${canvas.clientWidth * dpi}`);
 
-    const ctx: Canvas2D = canvas.getContext("2d");
+    const canvasCtx: Canvas2D | null = canvas.getContext("2d", { alpha: false });
+    if (!canvasCtx) {
+      console.error(`Failed to instantiate canvas context`);
+      return;
+    }
 
-    let frameId: number;
-    const renderLoop = () => {
-      drawOneFrame(canvas, ctx, zoom, state);
-      frameId = requestAnimationFrame(renderLoop);
+    canvasRef.current = canvas;
+    setCanvasCtx(canvasCtx);
+  }, []);
+
+  useEffect(() => {
+    if (!canvasRef.current || !canvasCtx) return;
+
+    const canvas = canvasRef.current;
+
+    const targetFps = 60;
+
+    let frameId = 0;
+    let lastFrameTime = 0;
+    const fpsInterval = 1000 / targetFps;
+
+    const renderLoop = (timestamp) => {
+      if (timestamp - lastFrameTime >= fpsInterval) {
+        lastFrameTime = timestamp;
+
+        canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
+        canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+        canvasCtx.save();
+        canvasCtx.setTransform(1, 0, 0, 1, -scrollX, -scrollY);
+        drawOneFrame(canvas, canvasCtx, zoom, state, scrollX, scrollY);
+        canvasCtx.restore();
+      }
+
+      frameId = requestAnimationFrame(renderLoop)
     }
     frameId = requestAnimationFrame(renderLoop);
 
+    return () => {
+      cancelAnimationFrame(frameId);
+    }
+  }, [canvasCtx, zoom, state, viewport, scrollX, scrollY]);
+
+  useEffect(() => {
+    if (!canvasRef.current || !canvasCtx) return;
+
+    const canvas = canvasRef.current;
+
+    const handleScroll = (e: WheelEvent) => {
+      e.preventDefault();
+
+      let newScrollX = scrollX + e.deltaX;
+      if (newScrollX < 0) newScrollX = 0;
+
+      let newScrollY = scrollY + e.deltaY;
+      if (newScrollY < 0) newScrollY = 0;
+
+      setScrollX(newScrollX);
+      setScrollY(newScrollY);
+    }
+
+    canvas.addEventListener("wheel", handleScroll);
+
+    return () => {
+      canvas.removeEventListener("wheel", handleScroll);
+    }
+  }, [canvasCtx, scrollX, scrollY]);
+
+  useEffect(() => {
     const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(e, db, state, zoom);
     const handleKeyboardInputCallback = (e: KeyboardEvent) => handleKeyboardInput(e, db, state, zoom);
 
@@ -410,7 +480,6 @@ export const Timeline = () => {
     document.addEventListener("mouseup", handleMouseInputCallback);
 
     return () => {
-      cancelAnimationFrame(frameId);
       document.removeEventListener("keydown", handleKeyboardInputCallback);
       document.removeEventListener("keypress", handleKeyboardInputCallback);
       document.removeEventListener("mousemove", handleMouseInputCallback);
@@ -418,6 +487,7 @@ export const Timeline = () => {
       document.removeEventListener("mouseup", handleMouseInputCallback);
     };
   }, [zoom, state]);
+
 
   // Pinch to zoom
   useEffect(() => {
@@ -436,9 +506,35 @@ export const Timeline = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const container = document.getElementById("pinch-target");
+    if (!container) return;
+
+    const dpi = window.devicePixelRatio;
+
+    const updateViewport = () => {
+      setViewport({
+        x: container.scrollLeft * dpi,
+        y: container.scrollTop * dpi,
+        width: container.clientWidth * dpi,
+        height: container.clientHeight * dpi,
+      });
+    };
+
+    // Update on scroll & resize
+    container.addEventListener("scroll", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    updateViewport(); // Initial update
+
+    return () => {
+      container.removeEventListener("scroll", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+    };
+  }, []);
+
   return (
     <div id="pinch-target" className="w-auto h-full overflow-auto touch-none">
-      <canvas tabIndex={0} id="track-canvas" className="w-[5000px] h-[5000px] outline-none" />
+      <canvas ref={canvasRef} tabIndex={0} id="track-canvas" className="w-full h-full outline-none" />
     </div>
   )
 }

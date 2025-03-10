@@ -5,6 +5,7 @@ import Stop from "../assets/icons/stop.svg?react"
 import Beginning from "../assets/icons/beginning.svg?react"
 import Record from "../assets/icons/record.svg?react"
 import VolumeUp from "../assets/icons/volumeUp.svg?react"
+import Sync from "../assets/icons/sync.svg?react"
 
 export const useIcons = () => {
     return {
@@ -15,5 +16,6 @@ export const useIcons = () => {
         Beginning,
         Record,
         VolumeUp,
+        Sync,
     }
 }

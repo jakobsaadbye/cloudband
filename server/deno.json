@@ -5,6 +5,7 @@
     },
     "imports": {
         "@common/": "../common/",
-        "@jakobsaadbye/teilen-sql": "../../teilen-sql/index.ts"
+        "@jakobsaadbye/teilen-sql": "../../teilen-sql/index.ts",
+        "@oak/oak": "jsr:@oak/oak@^17.1.4"
     }
 }

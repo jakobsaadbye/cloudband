@@ -4,6 +4,7 @@ import { twMerge } from "tailwind-merge";
 
 import { useIcons } from "../hooks/useIcons.tsx";
 import { useCtx, Context } from "../../core/context.ts";
+import { SyncControls } from "@ui/components/SyncControls.tsx";
 
 export const PlayControls = () => {
 
@@ -11,8 +12,6 @@ export const PlayControls = () => {
   
   const player = ctx.player;
 
-  const [showSaveMessage, setShowSaveMessage] = useState(false);
-  
   //
   // Keymap for the player controls
   ////
@@ -58,26 +57,15 @@ export const PlayControls = () => {
     }
   }, [ctx]);
 
-  useEffect(() => {
-    if (ctx.player.input.lastSave === 0) return;
-    
-    setShowSaveMessage(true);
-    const id = setTimeout(() => {
-      setShowSaveMessage(false);
-    }, 3000);
-
-    return () => {
-      clearTimeout(id);
-    }
-  }, [ctx.player.input.lastSave]);
+  
 
   const icon = useIcons();
   const iconStyle = "w-10 h-8 fill-gray-700"
 
   return (
-    <section className="flex justify-center items-center w-full gap-x-4 h-18 bg-gray-200">
+    <section className="flex justify-center items-center w-full gap-x-4 px-2 h-18 bg-gray-200">
       <div className="w-1/3">
-        {showSaveMessage && <p className="ml-4">Saved ...</p>}
+        <SyncControls />
       </div>
       <div className="flex justify-center items-center gap-2 w-1/3">
         <div tabIndex={1} title="Rewind ,">

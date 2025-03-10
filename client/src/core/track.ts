@@ -243,7 +243,8 @@ class TrackList {
             await fileWriter.close();
         }
 
-
+        console.log(`Load Track called!`);
+        
         const audioBuffer = await audioContext.decodeAudioData(fileContent);
 
         // Make the first region

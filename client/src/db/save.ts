@@ -6,15 +6,16 @@ import { Project, Region, Track } from "../core/track.ts";
 export const SaveEntireProject = async (db: SqliteDB, ctx: Context) => {
     
     await SaveProject(db, ctx.project);
-    await SavePlayer(db, ctx.player);
-
+    
     for (const track of ctx.trackList.tracks) {
         await SaveTrack(db, track);
     }
-
+    
     for (const track of ctx.trackList.tracks) {
         await SaveRegions(db, track.regions);
     }
+    
+    await SavePlayer(db, ctx.player);
 }
 
 const SaveProject = async (db: SqliteDB, project: Project) => {
