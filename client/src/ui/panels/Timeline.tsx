@@ -423,11 +423,13 @@ export const Timeline = () => {
     let lastFrameTime = 0;
     const fpsInterval = 1000 / targetFps;
 
+    console.log("Redrawing!");
+    
+
     const renderLoop = (timestamp) => {
       if (timestamp - lastFrameTime >= fpsInterval) {
         lastFrameTime = timestamp;
 
-        canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
         canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
         canvasCtx.save();
         canvasCtx.setTransform(1, 0, 0, 1, -scrollX, -scrollY);
@@ -507,6 +509,10 @@ export const Timeline = () => {
   }, []);
 
   useEffect(() => {
+    if (!canvasRef.current || !canvasCtx) return;
+
+    const canvas = canvasRef.current;
+
     const container = document.getElementById("pinch-target");
     if (!container) return;
 
@@ -519,6 +525,9 @@ export const Timeline = () => {
         width: container.clientWidth * dpi,
         height: container.clientHeight * dpi,
       });
+
+      canvas.setAttribute("height", `${canvas.clientHeight * dpi}`);
+      canvas.setAttribute("width", `${canvas.clientWidth * dpi}`);
     };
 
     // Update on scroll & resize
@@ -530,7 +539,7 @@ export const Timeline = () => {
       container.removeEventListener("scroll", updateViewport);
       window.removeEventListener("resize", updateViewport);
     };
-  }, []);
+  }, [canvasRef.current]);
 
   return (
     <div id="pinch-target" className="w-auto h-full overflow-auto touch-none">
