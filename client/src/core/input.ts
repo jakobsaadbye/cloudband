@@ -76,6 +76,7 @@ class PlayerInput {
     }
 
     Perfomed(actionKind: ActionKind, data: any) {
+        console.log(`Performed ${actionKind}`);
         this.undoBuffer.push({ kind: actionKind, data });
     }
 
@@ -83,6 +84,8 @@ class PlayerInput {
         if (this.selectedRegion === null) return;
 
         this.clipboard = this.selectedRegion;
+        console.log(`Copied region!`);
+        
     }
 
     PasteRegion(ctx: Context) {
@@ -92,7 +95,7 @@ class PlayerInput {
         const track = this.selectedTrack;
         const region = this.clipboard;
 
-        const newRegion = new Region(track.id);
+        const newRegion = new Region(track.id, region.projectId);
         newRegion.data = region.data;
         newRegion.start = region.end;
         newRegion.end = region.end + region.duration;

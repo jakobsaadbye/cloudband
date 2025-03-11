@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     kind text,
     volume float,
     pan float,
-    filename text
+    filename text,
+    is_uploaded int
 );
 
 CREATE TABLE IF NOT EXISTS regions (

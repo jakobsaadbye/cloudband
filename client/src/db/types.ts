@@ -21,6 +21,7 @@ export type TrackRow = {
     pan: number
     kind: string
     filename: string
+    is_uploaded: boolean
 }
 
 export type RegionRow = {

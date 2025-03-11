@@ -1,11 +1,13 @@
 import { audioElement, useCtx } from "../../core/context.ts";
 import { Track } from "@core/track.ts";
 import { useIcons } from "@ui/hooks/useIcons.tsx";
+import { UploadFile } from "@core/file_manager.ts";
 
 export const TrackList = () => {
 
     const ctx = useCtx();
 
+    const project = ctx.project;
     const trackList = ctx.trackList;
     const tracks    = ctx.trackList.tracks;
 
@@ -20,13 +22,21 @@ export const TrackList = () => {
         input.multiple = true;
         input.accept = "audio/mpeg, audio/mp3, audio/ogg"
         input.click();
-        input.onchange = () => {
+        input.onchange = async () => {
             const files = input.files;
             if (!files) return;
 
             for (const file of files) {
                 const track = new Track("audio", file, ctx.project.id);
                 trackList.LoadTrack(ctx, track, false);
+
+                const err = await UploadFile(project.id, "tracks", file);
+                if (err) {
+                    console.error(`Failed to upload file`, err);
+                    continue;
+                }
+
+                track.isUploaded = true;
             }
         }
     }

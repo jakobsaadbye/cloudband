@@ -17,6 +17,7 @@ class Track {
     file: File
     audioData: AudioBuffer | null
     isLoaded: boolean
+    isUploaded: boolean
 
     regions: Region[]
 
@@ -36,6 +37,7 @@ class Track {
         this.file = file;
         this.audioData = null;
         this.isLoaded = false;
+        this.isUploaded = false;
 
         this.regions = [];
     }
@@ -229,23 +231,26 @@ class TrackList {
 
         const fileContent = await track.file.arrayBuffer();
 
-        // Save the audio file to opfs under '/projects/{project-name}/tracks/{filename}'
+        // Save the audio file to opfs
         if (!loadingFromFile) {
             const opfsRoot = await navigator.storage.getDirectory();
             
             const projectsFolder = await opfsRoot.getDirectoryHandle("projects", { create: true });
-            const thisProjectFolder = await projectsFolder.getDirectoryHandle(ctx.project.name, { create: true });
+            const thisProjectFolder = await projectsFolder.getDirectoryHandle(ctx.project.id, { create: true });
             const tracksFolder = await thisProjectFolder.getDirectoryHandle("tracks", { create: true });
     
             const fileHandle = await tracksFolder.getFileHandle(`${track.file.name}`, { create: true });
-            const fileWriter = await fileHandle.createWritable();
+            const fileWriter = await fileHandle.createWritable();   
             await fileWriter.write(new Uint8Array(fileContent));
             await fileWriter.close();
         }
 
-        console.log(`Load Track called!`);
-        
-        const audioBuffer = await audioContext.decodeAudioData(fileContent);
+        // Try and get an existing audioBuffer from cache, as decoding the audio data is quite expensive!
+        let audioBuffer = ctx.audioDataCache.get(track.id);
+        if (!audioBuffer) {
+            audioBuffer = await audioContext.decodeAudioData(fileContent);
+            ctx.audioDataCache.set(track.id, audioBuffer);
+        }
 
         // Make the first region
         if (!loadingFromFile) {
@@ -273,7 +278,7 @@ class TrackList {
 
     loadReducedFrequencyData(audioBuffer: AudioBuffer) {
         const rawData = audioBuffer.getChannelData(0);
-        const samples = 8000;
+        const samples = rawData.length / 1000;
         const blockSize = Math.floor(rawData.length / samples);
 
         const reducedRawData = new Float32Array(samples).fill(0);

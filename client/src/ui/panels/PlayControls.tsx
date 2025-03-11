@@ -100,10 +100,10 @@ export const PlayControls = () => {
         </section>
       </div>
 
-      <div className="flex gap-x-8 w-1/3">
+      <div className="flex gap-x-8 w-1/3 justify-end">
         <div className="flex">
           <icon.VolumeUp className={twMerge(iconStyle)} />
-          <input title="Master volume" type="range" min={0} max={2} value={player.volume} step={0.01} onChange={(e) => player.SetVolume(ctx, +e.target.value)} />
+          <input className="w-28" title="Master volume" type="range" min={0} max={2} value={player.volume} step={0.01} onChange={(e) => player.SetVolume(ctx, +e.target.value)} />
         </div>
         {/* <div className="flex items-center gap-x-2">
           <p>LR Pan:</p>

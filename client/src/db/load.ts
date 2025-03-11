@@ -5,6 +5,7 @@ import { Project, TrackKind, TrackList } from "../core/track.ts";
 import { Context } from "../core/context.ts";
 import { Track } from "../core/track.ts";
 import { Region } from "../core/track.ts";
+import { GetOrDownloadFile } from "@core/file_manager.ts";
 
 const LoadProject = async (ctx: Context, db: SqliteDB, name: string) => {
     const projectRow = await db.first<ProjectRow>(`SELECT * FROM "projects" WHERE name = ?`, [name]);
@@ -29,26 +30,29 @@ const LoadProject = async (ctx: Context, db: SqliteDB, name: string) => {
 
     const trackList = new TrackList();
 
-    const opfsRoot = await navigator.storage.getDirectory();
-    const projectsFolder = await opfsRoot.getDirectoryHandle("projects", { create: true });
-    const thisProjectFolder = await projectsFolder.getDirectoryHandle(project.name, { create: true });
-    const tracksFolder = await thisProjectFolder.getDirectoryHandle("tracks", { create: true });
-
     // Load tracks
+    const t0 = performance.now();
     for (let i = 0; i < trackRows.length; i++) {
         const row = trackRows[i];
 
-        const fileHandle = await tracksFolder.getFileHandle(row.filename);
-        const file = await fileHandle.getFile();
+        const file = await GetOrDownloadFile(project.id, "tracks", row.filename);
+        if (!file) {
+            console.info(`Failed to load track because file '${row.filename}' couldn't be retrieved`);
+            continue;
+        }
+        
 
         const track = new Track(row.kind as TrackKind, file, project.id);
         track.id = row.id;
         track.kind = row.kind as TrackKind;
         track.SetVolume(ctx, row.volume);
         track.SetPan(ctx, row.pan);
+        track.isUploaded = row.is_uploaded ? true : false;
 
         await trackList.LoadTrack(ctx, track, true); // We don't save the file; nor create the first region when loading
     }
+    const t1 = performance.now();
+    console.log(`Loading tracks took ${(t1 - t0).toFixed(2)} ms.`);
     
     // Load regions
     for (const track of trackList.tracks) {

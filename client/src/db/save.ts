@@ -77,13 +77,15 @@ const SaveTrack = async (db: SqliteDB, track: Track) => {
             volume,
             pan,
             kind,
-            filename
-        ) VALUES (?, ?, ?, ?, ?, ?)
+            filename,
+            is_uploaded
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT DO UPDATE SET
             volume = EXCLUDED.volume,
             pan = EXCLUDED.pan,
             kind = EXCLUDED.kind,
-            filename = EXCLUDED.filename
+            filename = EXCLUDED.filename,
+            is_uploaded = EXCLUDED.is_uploaded
     `, [
         track.id,
         track.projectId,
@@ -91,6 +93,7 @@ const SaveTrack = async (db: SqliteDB, track: Track) => {
         track.pan,
         track.kind,
         track.filename,
+        track.isUploaded ? 1 : 0,
     ]);
     if (err) {
         console.error(err);

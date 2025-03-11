@@ -204,14 +204,14 @@ const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoo
     let handled = false;
     const key = ev.key;
 
-    if (ev.ctrlKey && key === "c") {
-      handled = true;
-      input.CopyRegion(state);
-    }
-
     if (ev.ctrlKey && key === "s") {
       handled = true;
       input.Save(db, state);
+    }
+
+    if (ev.ctrlKey && key === "c") {
+      handled = true;
+      input.CopyRegion(state);
     }
 
     if (ev.ctrlKey && key === "v") {
@@ -241,12 +241,12 @@ const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoo
 }
 
 
-const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: number) => {
+const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: number, scrollX: number, scrollY: number) => {
   const input = state.player.input;
 
   const dpi = window.devicePixelRatio;
-  const mouseX = e.offsetX * dpi;
-  const mouseY = e.offsetY * dpi;
+  const mouseX = (e.offsetX * dpi) + scrollX;
+  const mouseY = (e.offsetY * dpi) + scrollY;
 
   const barWidth = zoom;
   const cropWidth = 20;
@@ -274,6 +274,8 @@ const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: num
           region.flags |= RF.selected;
           input.selectedTrack = track;
           input.selectedRegion = region;
+          console.log(`Selected region`, region);
+          
 
           // Are we cropping or shifting the region?
           if (mouseX < region.x + cropWidth) {
@@ -396,8 +398,7 @@ export const Timeline = () => {
   useEffect(() => {
     const canvas: HTMLCanvasElement = document.getElementById("track-canvas");
 
-    // Canvas for some reason does not by default account for the dpi of the device, resulting in blurry everything, sigh ...
-    // Thanks to https://medium.com/@mikeeustace_47705/this-fixed-the-blur-problem-for-me-thank-you-986fbfe6b39a for a solution to that
+    // Upscale the canvas to the screen resolution. Otherwise things look blurry
     const dpi = window.devicePixelRatio;
     canvas.setAttribute("height", `${canvas.clientHeight * dpi}`);
     canvas.setAttribute("width", `${canvas.clientWidth * dpi}`);
@@ -422,9 +423,6 @@ export const Timeline = () => {
     let frameId = 0;
     let lastFrameTime = 0;
     const fpsInterval = 1000 / targetFps;
-
-    console.log("Redrawing!");
-    
 
     const renderLoop = (timestamp) => {
       if (timestamp - lastFrameTime >= fpsInterval) {
@@ -472,7 +470,7 @@ export const Timeline = () => {
   }, [canvasCtx, scrollX, scrollY]);
 
   useEffect(() => {
-    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(e, db, state, zoom);
+    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(e, db, state, zoom, scrollX, scrollY);
     const handleKeyboardInputCallback = (e: KeyboardEvent) => handleKeyboardInput(e, db, state, zoom);
 
     document.addEventListener("keydown", handleKeyboardInputCallback);
@@ -488,7 +486,7 @@ export const Timeline = () => {
       document.removeEventListener("mousedown", handleMouseInputCallback);
       document.removeEventListener("mouseup", handleMouseInputCallback);
     };
-  }, [zoom, state]);
+  }, [zoom, state, scrollX, scrollY]);
 
 
   // Pinch to zoom
