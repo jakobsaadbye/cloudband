@@ -6,6 +6,7 @@ import { Context, StateCtx, stateCtx } from "../core/context.ts";
 import { TabBar } from "./panels/TabBar.tsx";
 import { PlayControls } from "./panels/PlayControls.tsx";
 import { Timeline } from "./panels/Timeline.tsx";
+import { History } from "./panels/History.tsx";
 import { TrackControls } from "./panels/TrackControls.tsx";
 import { TrackList } from "./panels/TrackList.tsx";
 import { LoadProject } from "../db/load.ts";
@@ -21,8 +22,8 @@ function App() {
       const projectName = "unnamed";
       try {
         console.log(`Loading project '${projectName}' ...`);
-        
-        const context : Context = {...ctx, S: setCtx };
+
+        const context: Context = { ...ctx, S: setCtx };
 
         const success = await LoadProject(context, db, projectName);
         if (!success) {
@@ -36,9 +37,9 @@ function App() {
 
     initializeProject();
   }, []);
-  
+
   return (
-    <StateCtx.Provider value={{...ctx, S: setCtx}}>
+    <StateCtx.Provider value={{ ...ctx, S: setCtx }}>
       <main className="w-full h-full overflow-hidden">
         <TabBar />
         <PlayControls />
@@ -51,6 +52,10 @@ function App() {
             <div className="h-[300px]">
               <TrackControls />
             </div>
+          </div>
+
+          <div className="w-100 h-full bg-gray-300 border-l-1 border-l-black/40">
+            <History />
           </div>
         </div>
       </main>

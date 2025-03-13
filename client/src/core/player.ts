@@ -36,7 +36,9 @@ class Player {
     pulseEnabled: boolean
     noiceEnabled: boolean
 
+    // Flags
     isPlaying: boolean;
+    isPlayheadDragged: boolean;
 
     #wave = new PeriodicWave(audioContext, {
         real: wavetable.real,
@@ -77,6 +79,7 @@ class Player {
         this.noiceEnabled = false;
 
         this.isPlaying = false;
+        this.isPlayheadDragged = false;
     }
     
     get volume() {
@@ -173,6 +176,7 @@ class Player {
     
     SetElapsedTime(ctx: Context, value: number) {
         this.elapsedTime = value;
+        this.recalibrateBarAndBeat(ctx);
         ctx.S({...ctx});
     }
 

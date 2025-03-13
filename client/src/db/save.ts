@@ -1,24 +1,17 @@
-import { SqliteDB, sqlPlaceholders } from "@jakobsaadbye/teilen-sql";
+import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 import { Context } from "../core/context.ts";
 import { Player } from "../core/player.ts";
 import { Project, Region, Track } from "../core/track.ts";
 
 export const SaveEntireProject = async (db: SqliteDB, ctx: Context) => {
-    
     await SaveProject(db, ctx.project);
-    
-    for (const track of ctx.trackList.tracks) {
-        await SaveTrack(db, track);
-    }
-    
-    for (const track of ctx.trackList.tracks) {
-        await SaveRegions(db, track.regions);
-    }
-    
+    await SaveTracks(db, ctx.trackList.tracks);
+    const regions = ctx.trackList.tracks.reduce((vals, track) => {vals.push(...track.regions); return vals}, [] as Region[]);
+    await SaveRegions(db, regions);
     await SavePlayer(db, ctx.player);
 }
 
-const SaveProject = async (db: SqliteDB, project: Project) => {
+export const SaveProject = async (db: SqliteDB, project: Project) => {
     const err = await db.execTrackChanges(`
         INSERT INTO "projects" (
             id,
@@ -35,7 +28,7 @@ const SaveProject = async (db: SqliteDB, project: Project) => {
     }
 }
 
-const SavePlayer = async (db: SqliteDB, player: Player) => {
+export const SavePlayer = async (db: SqliteDB, player: Player) => {
     const err = await db.execTrackChanges(`
         INSERT INTO "players" (
             id,
@@ -69,7 +62,20 @@ const SavePlayer = async (db: SqliteDB, player: Player) => {
     }
 }
 
-const SaveTrack = async (db: SqliteDB, track: Track) => {
+export const SaveTracks = async (db: SqliteDB, tracks: Track[]) => {
+    const values = tracks.reduce((vals, track) => {
+        vals.push(...[
+            track.id,
+            track.projectId,
+            track.volume,
+            track.pan,
+            track.kind,
+            track.filename,
+            track.isUploaded ? 1 : 0,
+        ]);
+        return vals
+    }, [] as any[]);
+
     const err = await db.execTrackChanges(`
         INSERT INTO "tracks" (
             id,
@@ -79,28 +85,20 @@ const SaveTrack = async (db: SqliteDB, track: Track) => {
             kind,
             filename,
             is_uploaded
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES ${tracks.map(_ => `(?,?,?,?,?,?,?) `)}
         ON CONFLICT DO UPDATE SET
             volume = EXCLUDED.volume,
             pan = EXCLUDED.pan,
             kind = EXCLUDED.kind,
             filename = EXCLUDED.filename,
             is_uploaded = EXCLUDED.is_uploaded
-    `, [
-        track.id,
-        track.projectId,
-        track.volume,
-        track.pan,
-        track.kind,
-        track.filename,
-        track.isUploaded ? 1 : 0,
-    ]);
+    `, values);
     if (err) {
         console.error(err);
     }
 }
 
-const SaveRegions = async (db: SqliteDB, regions: Region[]) => {
+export const SaveRegions = async (db: SqliteDB, regions: Region[]) => {
     const values = regions.reduce((vals, region) => {
         vals.push(...[
             region.id,

@@ -63,7 +63,7 @@ export const PlayControls = () => {
   const iconStyle = "w-10 h-8 fill-gray-700"
 
   return (
-    <section className="flex justify-center items-center w-full gap-x-4 px-2 h-18 bg-gray-200">
+    <section className="flex justify-center items-center w-full gap-x-4 px-2 h-18 bg-gray-200 border-b-1 border-b-black/40">
       <div className="w-1/3">
         <SyncControls />
       </div>

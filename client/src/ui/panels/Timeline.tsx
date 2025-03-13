@@ -4,6 +4,8 @@ import { Context, useCtx } from "@core/context.ts";
 import { Region, RF } from "@core/track.ts";
 import { useDB } from "@jakobsaadbye/teilen-sql/react";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
+import { SavePlayer } from "@/db/save.ts";
+import { Player } from "@core/player.ts";
 
 type Canvas2D = CanvasRenderingContext2D;
 
@@ -56,53 +58,35 @@ let zoomScale = 0;
 const MAX_BAR_WIDTH = 1000;
 const MIN_BAR_WIDTH = 100;
 
+const TOP_BAR_HEIGHT = 80;
+const PLAYHEAD_Y = TOP_BAR_HEIGHT / 2;
+const TRACK_START = TOP_BAR_HEIGHT;
+
 const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, state: Context, scrollX: number, scrollY: number) => {
   const WIDTH = canvas.width + scrollX;
   const HEIGHT = canvas.height + scrollY;
-
-  const TOP_BAR_HEIGHT = 80;
-  const PLAYHEAD_Y = TOP_BAR_HEIGHT / 2;
-  const TRACK_START = TOP_BAR_HEIGHT;
-
 
   // Background
   ctx.fillStyle = "#AAAAAA";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  // Top-bar
-  ctx.fillStyle = "#808080";
-  ctx.fillRect(0, 0, WIDTH, TOP_BAR_HEIGHT);
-
-  // Bar and beat divider
-  DrawLine(ctx, 0, PLAYHEAD_Y, WIDTH, PLAYHEAD_Y, "#505050");
-
   const barWidth = zoom;
+  const beatWidth = barWidth / 4.0;
 
-  // Bars
+  canvas.style.cursor = "default";
+
+  // Vertical bar lines
   {
     let i = 0;
-    let x = 0;
-    while (x < WIDTH) {
-      // Bar number
-      ctx.font = "30px serif";
-      ctx.fillStyle = "white";
-      ctx.fillText("" + (i + 1), x + 12, 30, barWidth);
-
-      // Vertical line
+    let barX = 0;
+    while (barX < WIDTH) {
       if (i > 0) {
-
-        // Top bar line
-        DrawLine(ctx, x, 0, x, TOP_BAR_HEIGHT, "#DDDDDD");
-        // Rest
-        DrawLine(ctx, x, TOP_BAR_HEIGHT, x, HEIGHT, "#505050");
+        DrawLine(ctx, barX, TOP_BAR_HEIGHT + scrollY, barX, HEIGHT, "#505050");
       }
-
-      x += barWidth;
+      barX += barWidth;
       i += 1;
     }
   }
-
-  canvas.style.cursor = "default";
 
   //
   // Track regions
@@ -171,6 +155,40 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
     }
   }
 
+  // Top-bar
+  {
+    ctx.fillStyle = "#808080";
+    ctx.fillRect(0, 0 + scrollY, WIDTH, TOP_BAR_HEIGHT);
+
+    let i = 0;
+    let barX = 0;
+    let beatX = 0;
+    while (beatX < WIDTH) {
+      // Bar number
+      ctx.font = "30px serif";
+      ctx.fillStyle = "white";
+      ctx.fillText("" + (i + 1), barX + 12, 30 + scrollY, barWidth);
+
+      // Vertical lines
+      if (i > 0) {
+
+        // Top bar line
+        DrawLine(ctx, barX, 0 + scrollY, barX, TOP_BAR_HEIGHT + scrollY, "#DDDDDD");
+        
+        // Top beat line
+        DrawLine(ctx, beatX, PLAYHEAD_Y + 10 + scrollY, beatX, TOP_BAR_HEIGHT + scrollY, "#DDDDDD");
+      }
+
+      barX += barWidth;
+      beatX += beatWidth;
+      i += 1;
+    }
+  }
+
+  // Bar and beat divider
+  DrawLine(ctx, 0, PLAYHEAD_Y + scrollY, WIDTH, PLAYHEAD_Y + scrollY, "#505050");
+  
+
   // Playhead
   {
     const t = state.player.GetCurrentTime();
@@ -181,7 +199,7 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
 
 
     const x = (t / secondsPerBar) * barWidth + thickness * 0.5;
-    const y = PLAYHEAD_Y;
+    const y = PLAYHEAD_Y + scrollY;
     DrawLine(ctx, x, y, x, HEIGHT, "white", thickness);
   }
 }
@@ -206,7 +224,7 @@ const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoo
 
     if (ev.ctrlKey && key === "s") {
       handled = true;
-      input.Save(db, state);
+      input.SaveAll(db, state);
     }
 
     if (ev.ctrlKey && key === "c") {
@@ -241,8 +259,11 @@ const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoo
 }
 
 
-const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: number, scrollX: number, scrollY: number) => {
+const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB, state: Context, zoom: number, scrollX: number, scrollY: number) => {
   const input = state.player.input;
+
+  const WIDTH = canvas.width + scrollX;
+  const HEIGHT = canvas.height + scrollY;
 
   const dpi = window.devicePixelRatio;
   const mouseX = (e.offsetX * dpi) + scrollX;
@@ -250,6 +271,8 @@ const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: num
 
   const barWidth = zoom;
   const cropWidth = 20;
+
+  const save = () => SavePlayer(db, state.player);
 
   //
   // Region controls
@@ -272,10 +295,7 @@ const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: num
 
         if (e.type === "mousedown") {
           region.flags |= RF.selected;
-          input.selectedTrack = track;
-          input.selectedRegion = region;
-          console.log(`Selected region`, region);
-          
+          input.SelectRegion(save, region, track);
 
           // Are we cropping or shifting the region?
           if (mouseX < region.x + cropWidth) {
@@ -297,12 +317,22 @@ const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: num
         region.Unset(RF.hovered);
         region.Unset(RF.hoveredEnds);
         if (e.type === "mousedown") {
-          region.flags = 0;
-          input.ResetSelection(state);
+          region.Unset(RF.selected);
+          // region.flags = 0;
         }
       }
 
       if (e.type === "mouseup") {
+        if (region.Is(RF.croppingLeft)) {
+          input.Perfomed(state, "region-crop-start", [region, region.start, region.offsetStart, region.originalStart, region.originalOffsetStart]);
+        }
+        if (region.Is(RF.croppingRight)) {
+          input.Perfomed(state, "region-crop-end", [region, region.end, region.offsetEnd, region.originalEnd, region.originalOffsetEnd]);
+        }
+        if (region.Is(RF.shifting)) {
+          input.Perfomed(state, "region-shift", [region, region.start, region.end, region.originalStart, region.originalEnd]);
+        }
+
         if (region.Is(RF.held)) {
           region.flags = RF.selected;
         }
@@ -376,6 +406,67 @@ const handleMouseInput = (e: MouseEvent, db: SqliteDB, state: Context, zoom: num
       }
     }
   }
+
+  // Region unselect
+  if (e.type === "mousedown") {
+    let regionWasSelected = false;
+    outer: for (const track of tracks) {
+      for (const region of track.regions) {
+        if (region.deleted) continue;
+        if (region.Is(RF.selected)) {
+          regionWasSelected = true;
+          break outer;
+        }
+      }
+    }
+    if (!regionWasSelected) {
+      input.ResetSelection(save);
+    }
+  }
+
+  //
+  // Play-head area controls
+  //
+  {
+    const player = state.player;
+
+    if (e.type === "mousedown") {
+      if (CollisionPointRect(mouseX, mouseY, 0, PLAYHEAD_Y, WIDTH, TRACK_START)) {
+        player.isPlayheadDragged = true;
+
+        const time = pixelToTime(zoom, player.tempo, mouseX);
+        const snappedTime = snapTime(time, player.tempo);
+        player.SetElapsedTime(state, snappedTime);
+      }
+    }
+
+    if (e.type === "mousemove") {
+      if (player.isPlayheadDragged) {
+        const time = pixelToTime(zoom, player.tempo, mouseX);
+        const snappedTime = snapTime(time, player.tempo);
+        player.SetElapsedTime(state, snappedTime);
+      }
+    }
+
+    if (e.type === "mouseup") {
+      player.isPlayheadDragged = false;
+    }
+  }
+}
+
+const snapTime = (time: number, tempo: number) => {
+  const secondsPerUnit = 15.0 / tempo;
+  const units = Math.round(time / secondsPerUnit);
+
+  return units * secondsPerUnit;
+}
+
+const pixelToTime = (zoom: number, tempo: number, x: number) => {
+  const barWidth = zoom;
+  const secondsPerBar = 240.0 / tempo;
+  const bars = ((x) / barWidth);
+  const elapsed = bars * secondsPerBar;
+  return elapsed;
 }
 
 export const Timeline = () => {
@@ -470,23 +561,26 @@ export const Timeline = () => {
   }, [canvasCtx, scrollX, scrollY]);
 
   useEffect(() => {
-    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(e, db, state, zoom, scrollX, scrollY);
+    if (!canvasRef.current || !canvasCtx) return;
+    const canvas = canvasRef.current;
+
+    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(canvas, e, db, state, zoom, scrollX, scrollY);
     const handleKeyboardInputCallback = (e: KeyboardEvent) => handleKeyboardInput(e, db, state, zoom);
 
     document.addEventListener("keydown", handleKeyboardInputCallback);
     document.addEventListener("keypress", handleKeyboardInputCallback);
-    document.addEventListener("mousemove", handleMouseInputCallback);
-    document.addEventListener("mousedown", handleMouseInputCallback);
+    canvas.addEventListener("mousemove", handleMouseInputCallback);
+    canvas.addEventListener("mousedown", handleMouseInputCallback);
     document.addEventListener("mouseup", handleMouseInputCallback);
 
     return () => {
       document.removeEventListener("keydown", handleKeyboardInputCallback);
       document.removeEventListener("keypress", handleKeyboardInputCallback);
-      document.removeEventListener("mousemove", handleMouseInputCallback);
-      document.removeEventListener("mousedown", handleMouseInputCallback);
+      canvas.removeEventListener("mousemove", handleMouseInputCallback);
+      canvas.removeEventListener("mousedown", handleMouseInputCallback);
       document.removeEventListener("mouseup", handleMouseInputCallback);
     };
-  }, [zoom, state, scrollX, scrollY]);
+  }, [canvasRef.current, zoom, state, scrollX, scrollY]);
 
 
   // Pinch to zoom

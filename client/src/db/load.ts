@@ -82,7 +82,7 @@ const LoadProject = async (ctx: Context, db: SqliteDB, name: string) => {
     player.elapsedTime = playerRow.elapsed_time;
     player.input.selectedTrack = null;
     player.input.selectedRegion = null;
-    player.input.undos = playerRow.input_undos;
+    player.input.undos = 0 //playerRow.input_undos;
 
 
     ctx.player = player;
