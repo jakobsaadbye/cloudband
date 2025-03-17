@@ -6,8 +6,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 
-import { createDb } from "@jakobsaadbye/teilen-sql"
-import { SqliteContext, Inspector } from "@jakobsaadbye/teilen-sql/react"
+import { createDb, Syncer } from "@jakobsaadbye/teilen-sql"
+import { SqliteContext, Inspector, SyncContext } from "@jakobsaadbye/teilen-sql/react"
 import { tables } from "@common/tables.ts";
 
 const db = await createDb("cloudband.db");
@@ -16,15 +16,18 @@ await db.upgradeTableToCrr("projects");
 await db.upgradeTableToCrr("players");
 await db.upgradeTableToCrr("tracks");
 await db.upgradeTableToCrr("regions");
-await db.finalizeUpgrades();
+await db.finalize();
 
+const syncer = new Syncer(db, "");
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   // <StrictMode>
-    <SqliteContext.Provider value={db}>
+  <SqliteContext.Provider value={db}>
+    <SyncContext.Provider value={syncer}>
       <Inspector>
         <App />
       </Inspector>
-    </SqliteContext.Provider>
+    </SyncContext.Provider>
+  </SqliteContext.Provider>
   // </StrictMode>,
 )

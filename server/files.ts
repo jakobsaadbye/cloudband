@@ -1,5 +1,6 @@
 import { Context } from "@oak/oak";
 import { Status } from "jsr:@oak/commons@1/status";
+import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 
 export const handleDownloadFile = async (ctx: Context) => {
     const projectId = ctx.request.url.searchParams.get("projectId");

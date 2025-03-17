@@ -1,9 +1,8 @@
 import { Region, Track } from "./track.ts";
 import { Context } from "./context.ts";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
-import { SaveEntireProject, SaveRegions } from "../db/save.ts";
-import "@core/undo.ts";
-import * as E from "@core/undo.ts";
+import { SaveEntireWorkspace, SaveRegions } from "../db/save.ts";
+import { undo, redo } from "@core/undo.ts";
 
 export type ActionKind =
     | "region-delete"
@@ -11,6 +10,8 @@ export type ActionKind =
     | "region-crop-start"
     | "region-crop-end"
     | "region-shift"
+    | "region-split"
+    | "track-delete"
 
 export type Action = {
     kind: ActionKind
@@ -39,10 +40,10 @@ class PlayerInput {
         this.lastSave = 0;
     }
 
-    async SaveAll(db: SqliteDB, ctx: Context) {
+    async SaveAll(ctx: Context, db: SqliteDB) {
         const t1 = performance.now();
 
-        await SaveEntireProject(db, ctx);
+        await SaveEntireWorkspace(db, ctx);
 
         const t2 = performance.now();
 
@@ -51,7 +52,7 @@ class PlayerInput {
 
         this.lastSave = (new Date()).getTime();
 
-        ctx.S({...ctx});
+        ctx.S({ ...ctx });
     }
 
     Undo(ctx: Context) {
@@ -59,16 +60,18 @@ class PlayerInput {
 
         this.undos += 1;
 
-        ctx.S({...ctx});
+        ctx.S({ ...ctx });
 
         const index = this.undoBuffer.length - this.undos;
         const lastAction = this.undoBuffer[index];
         switch (lastAction.kind) {
-            case "region-delete": return E.UndoRegionDelete(ctx, lastAction);
-            case "region-paste": return E.UndoRegionPaste(ctx, lastAction);
-            case "region-crop-start": return E.UndoRegionCropStart(ctx, lastAction);
-            case "region-crop-end": return E.UndoRegionCropEnd(ctx, lastAction);
-            case "region-shift": return E.UndoRegionShift(ctx, lastAction);
+            case "region-delete": return undo.RegionDelete(lastAction);
+            case "region-paste": return undo.RegionPaste(lastAction);
+            case "region-crop-start": return undo.RegionCropStart(lastAction);
+            case "region-crop-end": return undo.RegionCropEnd(lastAction);
+            case "region-shift": return undo.RegionShift(lastAction);
+            case "region-split": return undo.RegionSplit(lastAction);
+            case "track-delete": return undo.TrackDelete(lastAction);
         }
     }
 
@@ -77,27 +80,28 @@ class PlayerInput {
 
         this.undos -= 1;
 
-        ctx.S({...ctx});
+        ctx.S({ ...ctx });
 
         const index = this.undoBuffer.length - this.undos - 1;
         const lastAction = this.undoBuffer[index];
         switch (lastAction.kind) {
-            case "region-delete": return E.RedoRegionDelete(ctx, lastAction);
-            case "region-paste": return E.RedoRegionPaste(ctx, lastAction);
-            case "region-crop-start": return E.RedoRegionCropStart(ctx, lastAction);
-            case "region-crop-end": return E.RedoRegionCropEnd(ctx, lastAction);
-            case "region-shift": return E.RedoRegionShift(ctx, lastAction);
+            case "region-delete": return redo.RegionDelete(lastAction);
+            case "region-paste": return redo.RegionPaste(lastAction);
+            case "region-crop-start": return redo.RegionCropStart(lastAction);
+            case "region-crop-end": return redo.RegionCropEnd(lastAction);
+            case "region-shift": return redo.RegionShift(lastAction);
+            case "region-split": return redo.RegionSplit(lastAction);
+            case "track-delete": return redo.TrackDelete(lastAction);
         }
     }
 
     Perfomed(ctx: Context, actionKind: ActionKind, data: any) {
-        console.log(`Performed ${actionKind}`);
         if (this.undos > 0) {
             this.undoBuffer = this.undoBuffer.slice(0, -(this.undos + 1));
             this.undos = 0;
         }
         this.undoBuffer.push({ kind: actionKind, data });
-        ctx.S({...ctx});
+        ctx.S({ ...ctx });
     }
 
     CopyRegion(ctx: Context) {
@@ -130,21 +134,76 @@ class PlayerInput {
         this.Perfomed(ctx, "region-delete", copy);
     }
 
+    SplitRegion(ctx: Context) {
+        if (this.selectedRegion === null) return;
+        if (this.selectedTrack === null) return;
+        if (ctx.player.elapsedTime < this.selectedRegion.start || ctx.player.elapsedTime > this.selectedRegion.end) return;
+
+        const splitTime = ctx.player.elapsedTime;
+
+        const track = this.selectedTrack;
+
+        const A = this.selectedRegion;
+        const B = new Region(track.id, A.projectId);
+        B.data = A.data;
+        B.totalDuration = A.totalDuration;
+
+        B.start = splitTime;
+        B.offsetStart = splitTime - A.start + A.offsetStart;
+        B.end = A.end;
+
+        A.end = splitTime;
+
+        track.regions.push(B);
+        this.selectedRegion = B;
+        this.Perfomed(ctx, "region-split", [A, B]);
+    }
+
+    DeleteTrack(ctx: Context) {
+        if (this.selectedRegion) return;
+
+        const track = this.selectedTrack;
+        if (!track) return;
+
+        track.deleted = true;
+        this.Perfomed(ctx, "track-delete", [track]);
+    }
+
     ResetSelection(save: () => void) {
         this.selectedRegion = null;
         save();
     }
 
-    SelectRegion(save: () => void, region: Region, track: Track) {
+    SelectRegion(ctx: Context, region: Region, track: Track) {
         this.selectedTrack = track;
         this.selectedRegion = region;
-        save();
+        ctx.S({ ...ctx });
+    }
+
+    SelectTrack(ctx: Context, track: Track) {
+        this.selectedTrack = track;
+        ctx.S({ ...ctx });
     }
 
     RegionChanged(db: SqliteDB, region: Region) {
         SaveRegions(db, [region])
     }
 }
+
+export const globalKeyboardInputIsDisabled = (e: Event) => {
+    if (e.target.matches("textarea, select, [contenteditable]")) {
+      return true;
+    }
+    if (e.target.matches("input")) {
+      if (e.target.type === "range") {
+        return false;
+      } else {
+        return true;
+      }
+    }
+  
+    return false;
+  }
 
 export {
     PlayerInput

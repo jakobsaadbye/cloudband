@@ -1,11 +1,20 @@
-export class AudioDataCache {
-    cache = new Map<string, AudioBuffer>();
+export class Cache {
+    audioData = new Map<string, AudioBuffer>();
+    frequencyData = new Map<string, Float32Array>();
 
-    get(trackId: string) {
-        return this.cache.get(trackId);
+    getAudioData(trackId: string) {
+        return this.audioData.get(trackId);
     }
 
-    set(trackId: string, audioData: AudioBuffer) {
-        this.cache.set(trackId, audioData);
+    setAudioData(trackId: string, audioData: AudioBuffer) {
+        this.audioData.set(trackId, audioData);
+    }
+    
+    getFrequencyData(trackId: string) {
+        return this.frequencyData.get(trackId);
+    }
+
+    setFrequencyData(trackId: string, frequencyData: Float32Array) {
+        this.frequencyData.set(trackId, frequencyData);
     }
 }

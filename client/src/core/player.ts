@@ -32,6 +32,9 @@ class Player {
     pausedAt: number
     elapsedTime: number // Specifies where we are on the timeline
 
+    scrollX: number
+    scrollY: number
+
     sweepEnabled: boolean
     pulseEnabled: boolean
     noiceEnabled: boolean
@@ -74,6 +77,9 @@ class Player {
         this.pausedAt = 0;
         this.elapsedTime = 0;
 
+        this.scrollX = 0;
+        this.scrollY = 0;
+
         this.sweepEnabled = false;
         this.pulseEnabled = false;
         this.noiceEnabled = false;
@@ -97,7 +103,7 @@ class Player {
      */
     GetCurrentTime() {
         let currentTime = this.elapsedTime + audioContext.currentTime - this.startedAt;
-        if (this.isPlaying === false) {
+        if (!this.isPlaying) {
           currentTime = this.elapsedTime;
         }
         return currentTime;
@@ -223,6 +229,7 @@ class Player {
         this.bar = 1;
         this.beat = 1;
         this.PausePlay(ctx);
+        this.scrollX = 0;
         ctx.S({...ctx});
     }
 

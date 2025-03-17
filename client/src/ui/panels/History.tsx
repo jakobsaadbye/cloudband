@@ -21,9 +21,9 @@ export const History = () => {
     }, [currentHead.current]);
     
     return (
-        <div className="p-2 ">
+        <div className="p-2">
             <p className="pb-2 font-semibold">History</p>
-            <div ref={listElement} className="flex flex-col mb-16 h-64 bg-white select-none overflow-scroll">
+            <div ref={listElement} className="flex flex-col mb-16 h-64 bg-white select-none overflow-scroll rounded-sm">
                 {input.undoBuffer.map((action, i) => {
                     const undos = input.undos;
                     const headIndex = input.undoBuffer.length - undos - 1;

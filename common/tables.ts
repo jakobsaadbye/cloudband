@@ -2,41 +2,47 @@ export const tables = `
 
 BEGIN;
 
+CREATE TABLE IF NOT EXISTS workspace (
+    id text primary key
+);
+
 CREATE TABLE IF NOT EXISTS projects (
     id text primary key,
-    name text
+    name text,
+    lastAccessed int
 );
 
 CREATE TABLE IF NOT EXISTS players (
     id text primary key,
-    project_id references projects(id),
+    projectId references projects(id),
     volume float,
     tempo int,
-    elapsed_time double,
-    input_selected_track  references tracks(id),
-    input_selected_region references regions(id),
+    elapsedTime double,
+    input_selectedTrack  references tracks(id),
+    input_selectedRegion references regions(id),
     input_undos int
 );
 
 CREATE TABLE IF NOT EXISTS tracks (
     id text primary key,
-    project_id references projects(id),
+    projectId references projects(id),
     kind text,
     volume float,
     pan float,
     filename text,
-    is_uploaded int
+    isUploaded int,
+    deleted int
 );
 
 CREATE TABLE IF NOT EXISTS regions (
     id text primary key,
-    project_id references projects(id),
-    track_id references tracks(id) on delete cascade,
-    offset_start double,
-    offset_end double,
+    projectId references projects(id),
+    trackId references tracks(id) on delete cascade,
+    offsetStart double,
+    offsetEnd double,
     start double,
     end double,
-    total_duration double,
+    totalDuration double,
     flags int,
     deleted int
 );

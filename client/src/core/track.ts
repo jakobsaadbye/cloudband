@@ -21,6 +21,8 @@ class Track {
 
     regions: Region[]
 
+    deleted: boolean
+
     constructor(kind: TrackKind, file: File, projectId: string) {
         this.id = generateId();
         this.projectId = projectId;
@@ -40,6 +42,8 @@ class Track {
         this.isUploaded = false;
 
         this.regions = [];
+
+        this.deleted = false;
     }
 
     initAnalyser() {
@@ -59,13 +63,24 @@ class Track {
         return this.volumer.gain.value;
     }
 
+    set volume(value: number) {
+        this.volumer.gain.value = value;
+    }
+    
     get pan() {
         return this.panner.pan.value;
+    }
+
+    set pan(value: number) {
+        this.panner.pan.value = value;
     }
 
     Play(ctx: Context) {
         if (!this.isLoaded) {
             console.warn(`Track has not yet been loaded`);
+            return;
+        }
+        if (this.deleted) {
             return;
         }
 
@@ -98,7 +113,6 @@ const RF = { // Region_Flags
     shifting: 4,
     croppingLeft: 8,
     croppingRight: 16,
-    selected: 32,
 
     held: 4 | 8 | 16,
 }
@@ -227,33 +241,22 @@ class TrackList {
         this.tracks = [];
     }
 
-    async LoadTrack(ctx: Context, track: Track, loadingFromFile: boolean) {
-
+    async LoadTrack(ctx: Context, track: Track, performingReload: boolean) {
         const fileContent = await track.file.arrayBuffer();
 
-        // Save the audio file to opfs
-        if (!loadingFromFile) {
-            const opfsRoot = await navigator.storage.getDirectory();
-            
-            const projectsFolder = await opfsRoot.getDirectoryHandle("projects", { create: true });
-            const thisProjectFolder = await projectsFolder.getDirectoryHandle(ctx.project.id, { create: true });
-            const tracksFolder = await thisProjectFolder.getDirectoryHandle("tracks", { create: true });
-    
-            const fileHandle = await tracksFolder.getFileHandle(`${track.file.name}`, { create: true });
-            const fileWriter = await fileHandle.createWritable();   
-            await fileWriter.write(new Uint8Array(fileContent));
-            await fileWriter.close();
+        // Save the audio file to disk
+        if (!performingReload) {
+            await ctx.fileManager.WriteLocalFile(ctx.project.id, "tracks", track.file.name, fileContent);
         }
 
-        // Try and get an existing audioBuffer from cache, as decoding the audio data is quite expensive!
-        let audioBuffer = ctx.audioDataCache.get(track.id);
+        let audioBuffer = ctx.cache.getAudioData(track.id);
         if (!audioBuffer) {
             audioBuffer = await audioContext.decodeAudioData(fileContent);
-            ctx.audioDataCache.set(track.id, audioBuffer);
+            ctx.cache.setAudioData(track.id, audioBuffer);
         }
 
         // Make the first region
-        if (!loadingFromFile) {
+        if (!performingReload) {
             const region = new Region(track.id, ctx.project.id);
             region.data = audioBuffer;
             region.start = 0.0;
@@ -265,20 +268,25 @@ class TrackList {
         track.audioData = audioBuffer;
 
         // Load in the frequency data to be visualized
-        track.frequencyData = this.loadReducedFrequencyData(audioBuffer);
+        track.frequencyData = this.loadReducedFrequencyData(ctx, track.id, audioBuffer);
 
         track.isLoaded = true;
 
         this.tracks.push(track);
 
-        if (!loadingFromFile) {
+        if (!performingReload) {
             ctx.S({ ...ctx });
         }
     }
 
-    loadReducedFrequencyData(audioBuffer: AudioBuffer) {
+    loadReducedFrequencyData(ctx: Context, trackId: string, audioBuffer: AudioBuffer) {
+        const cached = ctx.cache.getFrequencyData(trackId);
+        if (cached) {
+            return cached;
+        }
+
         const rawData = audioBuffer.getChannelData(0);
-        const samples = rawData.length / 1000;
+        const samples = rawData.length / 500;
         const blockSize = Math.floor(rawData.length / samples);
 
         const reducedRawData = new Float32Array(samples).fill(0);
@@ -304,6 +312,8 @@ class TrackList {
             reducedRawData[i] = reducedRawData[i] * normal;
         }
 
+        ctx.cache.setFrequencyData(trackId, reducedRawData);
+
         return reducedRawData;
     }
 }
@@ -311,10 +321,17 @@ class TrackList {
 class Project {
     id: string
     name: string
+    lastAccessed: number
 
     constructor() {
         this.id = generateId();
-        this.name = "unnamed";
+        this.name = "Untitled";
+        this.lastAccessed = 0;
+    }
+
+    SetName(ctx: Context, value: string) {
+        this.name = value;
+        ctx.S({...ctx});
     }
 }
 

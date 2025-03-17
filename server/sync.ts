@@ -1,14 +1,14 @@
 import { Context } from "@oak/oak";
 import { applyChanges, Change, SqliteDB } from "@jakobsaadbye/teilen-sql";
-import { db } from "./db.ts";
 
 type MyWebSocket = WebSocket & {
     clientId: string
+    db: SqliteDB
 };
 
 const connectedClients = new Map<string, MyWebSocket>();
 
-export async function handleWebSocketConnection(ctx: Context) {
+export async function handleWebSocketConnection(ctx: Context, db: SqliteDB) {
     const socket = await ctx.upgrade() as MyWebSocket;
     const clientId = ctx.request.url.searchParams.get("clientId");
 
@@ -18,6 +18,8 @@ export async function handleWebSocketConnection(ctx: Context) {
     }
 
     socket.clientId = clientId;
+    socket.db = db;
+
     socket.onopen = () => clientConnected(socket);
     socket.onclose = () => clientDisconnected.bind(clientId);
     socket.onmessage = (msg: MessageEvent) => handleMessage(socket, msg);
@@ -59,7 +61,7 @@ const handlePullChanges = async (ws: MyWebSocket, data: any) => {
     const clientId = ws.clientId;
     const lastPulledAt = data.lastPulledAt;
 
-    const { data: changes, error } = await db.selectWithError<Change[]>(`SELECT * FROM "crr_changes" WHERE site_id != ? AND applied_at > ?`, [clientId, lastPulledAt]);
+    const { data: changes, error } = await ws.db.selectWithError<Change[]>(`SELECT * FROM "crr_changes" WHERE site_id != ? AND applied_at > ?`, [clientId, lastPulledAt]);
     
     if (error) {
         const msg = JSON.stringify({
@@ -84,7 +86,7 @@ const handlePullChanges = async (ws: MyWebSocket, data: any) => {
 
 const handlePushChanges = async (ws: MyWebSocket, changes: Change[]) => {
     try {
-        await applyChanges(db, changes);
+        await applyChanges(ws.db, changes);
 
         const msg = JSON.stringify({
             type: "push-changes-ok",

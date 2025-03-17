@@ -18,30 +18,26 @@ const DrawLine = (ctx: Canvas2D, x0: number, y0: number, x1: number, y1: number,
   ctx.stroke();
 }
 
-const DrawRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, style = "#000000", alpha = 1.0) => {
-  const prevAlpha = ctx.globalAlpha;
-  ctx.globalAlpha = alpha;
+const DrawRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, style = "#000000", roundness = [0, 0, 0, 0]) => {
   ctx.fillStyle = style;
-  ctx.fillRect(x, y, width, height);
-  ctx.globalAlpha = prevAlpha;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, roundness);
+  ctx.fill();
 }
 
-const DrawStrokedRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, strokeStyle = "#000000", fillStyle = "#000000", thickness = 1.0, alpha = 1.0) => {
+const DrawStrokedRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, strokeStyle = "#000000", fillStyle = "#000000", thickness = 1.0, roundness = [0, 0, 0, 0]) => {
   x += thickness / 2;
   y += thickness / 2;
   width -= thickness / 2;
   height -= thickness / 2;
 
-  DrawRectangle(ctx, x, y, width, height, fillStyle, alpha);
+  DrawRectangle(ctx, x, y, width, height, fillStyle, roundness);
 
-  const prevAlpha = ctx.globalAlpha;
-
-  ctx.globalAlpha = alpha;
   ctx.lineWidth = thickness;
   ctx.strokeStyle = strokeStyle;
-  ctx.strokeRect(x, y, width, height);
-
-  ctx.globalAlpha = prevAlpha;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, roundness);
+  ctx.stroke();
 }
 
 const regionColorPresets = [
@@ -62,7 +58,10 @@ const TOP_BAR_HEIGHT = 80;
 const PLAYHEAD_Y = TOP_BAR_HEIGHT / 2;
 const TRACK_START = TOP_BAR_HEIGHT;
 
-const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, state: Context, scrollX: number, scrollY: number) => {
+const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, state: Context) => {
+  const scrollX = state.player.scrollX;
+  const scrollY = state.player.scrollY;
+
   const WIDTH = canvas.width + scrollX;
   const HEIGHT = canvas.height + scrollY;
 
@@ -92,27 +91,35 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
   // Track regions
   //
   {
+    const input = state.player.input;
+
     const trackHeight = 192;
+    let trackIndex = 0;
     for (let i = 0; i < state.trackList.tracks.length; i++) {
       const track = state.trackList.tracks[i];
+      if (track.deleted) continue;
 
       for (const region of track.regions) {
         if (region.deleted) continue;
 
         const secondsPerBar = 240.0 / state.player.tempo;
 
+        const gapY = 6;
+
         const x = region.start / secondsPerBar * barWidth;
-        const y = i * trackHeight + TRACK_START;
+        let y = trackIndex * trackHeight + TRACK_START;
         const width = region.duration / secondsPerBar * barWidth;
         const height = trackHeight;
 
+        y += gapY * trackIndex;
+
         const bgColor = regionColorPresets[i];
         let outline = "#303030";
-        if (region.flags & RF.selected) {
+        if (input.selectedRegion === region) {
           outline = "#FFFFFF";
         }
 
-        DrawStrokedRectangle(ctx, x, y, width, height, outline, bgColor, 2);
+        DrawStrokedRectangle(ctx, x, y, width, height, outline, bgColor, 2, [8]);
 
         const fontSize = 28;
         ctx.font = fontSize + "px serif";
@@ -136,9 +143,9 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
         const lineWidth = regionWidthBeforeCutting / frequencyData.length;
         for (let i = 0; i < frequencyData.length; i++) {
           const lineHeight = Math.abs(frequencyData[i] * region.height * 0.90);
-          const x = (region.x - cuttedX) + i * lineWidth;
+          const x = (region.x - cuttedX + 1) + i * lineWidth;
 
-          if (x < region.x || x > region.x + region.width) continue;
+          if (x < region.x + 1 || x > region.x + region.width - 4) continue;
 
           const y = region.y + region.height / 2 - lineHeight / 2;
           ctx.fillRect(x, y, lineWidth, lineHeight);
@@ -152,6 +159,8 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
           canvas.style.cursor = "col-resize";
         }
       }
+
+      trackIndex += 1;
     }
   }
 
@@ -174,9 +183,13 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
 
         // Top bar line
         DrawLine(ctx, barX, 0 + scrollY, barX, TOP_BAR_HEIGHT + scrollY, "#DDDDDD");
-        
+
         // Top beat line
-        DrawLine(ctx, beatX, PLAYHEAD_Y + 10 + scrollY, beatX, TOP_BAR_HEIGHT + scrollY, "#DDDDDD");
+        if (i % 4 === 0) {
+          // skip
+        } else {
+          DrawLine(ctx, beatX, PLAYHEAD_Y + 10 + scrollY, beatX, TOP_BAR_HEIGHT + scrollY, "#DDDDDD");
+        }
       }
 
       barX += barWidth;
@@ -187,7 +200,7 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
 
   // Bar and beat divider
   DrawLine(ctx, 0, PLAYHEAD_Y + scrollY, WIDTH, PLAYHEAD_Y + scrollY, "#505050");
-  
+
 
   // Playhead
   {
@@ -198,9 +211,26 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
     const secondsPerBar = 240.0 / tempo;
 
 
-    const x = (t / secondsPerBar) * barWidth + thickness * 0.5;
+    let x = (t / secondsPerBar) * barWidth - thickness * 0.5;
     const y = PLAYHEAD_Y + scrollY;
-    DrawLine(ctx, x, y, x, HEIGHT, "white", thickness);
+    DrawRectangle(ctx, x, y, thickness, HEIGHT, "#FFFFFF");
+
+    x += thickness * 0.5
+    const w = 16;
+    const h = PLAYHEAD_Y / 2;
+    ctx.beginPath();
+    ctx.strokeStyle = "#707070";
+    ctx.lineWidth = 3;
+    ctx.fillStyle = "#CCCCCC";
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - w, y);
+    ctx.lineTo(x - w, y + h);
+    ctx.lineTo(x, y + h * 2);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x, y);
+    ctx.fill();
+    ctx.stroke();
   }
 }
 
@@ -217,50 +247,61 @@ const CollisionPointRect = (px: number, py: number, x: number, y: number, width:
 const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoom: number) => {
   const input = state.player.input;
 
-  if (e.type === "keypress" || e.type === "keydown") {
-    const ev = e as KeyboardEvent;
-    let handled = false;
-    const key = ev.key;
+  let handled = false;
+  const key = e.key;
 
-    if (ev.ctrlKey && key === "s") {
-      handled = true;
-      input.SaveAll(db, state);
-    }
+  if (e.metaKey && key === "s") {
+    handled = true;
+    input.SaveAll(state, db);
+  }
 
-    if (ev.ctrlKey && key === "c") {
-      handled = true;
-      input.CopyRegion(state);
-    }
+  if (e.metaKey && key === "c") {
+    handled = true;
+    input.CopyRegion(state);
+  }
 
-    if (ev.ctrlKey && key === "v") {
-      handled = true;
-      input.PasteRegion(state);
-    }
+  if (e.metaKey && key === "v") {
+    handled = true;
+    input.PasteRegion(state);
+  }
 
-    if (ev.ctrlKey && key === "z") {
-      handled = true;
-      input.Undo(state);
-    }
+  if (e.metaKey && key === "z") {
+    handled = true;
+    input.Undo(state);
+  }
 
-    if (ev.ctrlKey && key === "y") {
-      handled = true;
-      input.Redo(state);
-    }
+  if (e.metaKey && key === "y") {
+    handled = true;
+    input.Redo(state);
+  }
 
-    if (key === "Backspace") {
-      handled = true;
-      input.DeleteRegion(state);
-    }
+  if (e.metaKey && key === "i" && input.selectedRegion) {
+    handled = true;
+    input.SplitRegion(state);
+  }
 
-    if (handled) {
-      e.preventDefault();
-    }
+  if (key === "Backspace" && input.selectedRegion) {
+    handled = true;
+    input.DeleteRegion(state);
+  }
+
+  if (key === "Backspace" && input.selectedTrack && !input.selectedRegion) {
+    handled = true;
+    input.DeleteTrack(state);
+  }
+
+  if (handled) {
+    e.preventDefault();
   }
 }
 
 
-const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB, state: Context, zoom: number, scrollX: number, scrollY: number) => {
+const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB, state: Context, zoom: number) => {
+  const player = state.player;
   const input = state.player.input;
+
+  const scrollX = player.scrollX;
+  const scrollY = player.scrollY;
 
   const WIDTH = canvas.width + scrollX;
   const HEIGHT = canvas.height + scrollY;
@@ -272,11 +313,11 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
   const barWidth = zoom;
   const cropWidth = 20;
 
-  const save = () => SavePlayer(db, state.player);
-
   //
   // Region controls
   //
+  let regionSelected = null;
+
   const tracks = state.trackList.tracks;
   for (let i = 0; i < tracks.length; i++) {
     const track = tracks[i];
@@ -294,8 +335,8 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
         }
 
         if (e.type === "mousedown") {
-          region.flags |= RF.selected;
-          input.SelectRegion(save, region, track);
+          input.SelectRegion(state, region, track);
+          regionSelected = region;
 
           // Are we cropping or shifting the region?
           if (mouseX < region.x + cropWidth) {
@@ -317,24 +358,36 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
         region.Unset(RF.hovered);
         region.Unset(RF.hoveredEnds);
         if (e.type === "mousedown") {
-          region.Unset(RF.selected);
-          // region.flags = 0;
+
+          // region.Unset(RF.selected);
+          region.flags = 0;
         }
       }
 
       if (e.type === "mouseup") {
-        if (region.Is(RF.croppingLeft)) {
-          input.Perfomed(state, "region-crop-start", [region, region.start, region.offsetStart, region.originalStart, region.originalOffsetStart]);
-        }
-        if (region.Is(RF.croppingRight)) {
-          input.Perfomed(state, "region-crop-end", [region, region.end, region.offsetEnd, region.originalEnd, region.originalOffsetEnd]);
-        }
-        if (region.Is(RF.shifting)) {
-          input.Perfomed(state, "region-shift", [region, region.start, region.end, region.originalStart, region.originalEnd]);
+
+        let somethingChanged = false;
+        if (region.start !== region.originalStart) somethingChanged = true;
+        if (region.end !== region.originalEnd) somethingChanged = true;
+        if (region.offsetStart !== region.originalOffsetStart) somethingChanged = true;
+        if (region.offsetEnd !== region.originalOffsetEnd) somethingChanged = true;
+
+        if (somethingChanged) {
+          if (region.Is(RF.croppingLeft)) {
+            input.Perfomed(state, "region-crop-start", [region, region.start, region.offsetStart, region.originalStart, region.originalOffsetStart]);
+          }
+          if (region.Is(RF.croppingRight)) {
+            input.Perfomed(state, "region-crop-end", [region, region.end, region.offsetEnd, region.originalEnd, region.originalOffsetEnd]);
+          }
+          if (region.Is(RF.shifting)) {
+            input.Perfomed(state, "region-shift", [region, region.start, region.end, region.originalStart, region.originalEnd]);
+          }
         }
 
         if (region.Is(RF.held)) {
-          region.flags = RF.selected;
+          regionSelected = region;
+          input.selectedRegion = region;
+          region.Unset(RF.held);
         }
       }
 
@@ -346,7 +399,7 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
           const barsDragged = dragOffsetX / barWidth;
           const secondsPerBar = 240.0 / state.player.tempo;
 
-          const durationDragged = barsDragged * secondsPerBar;
+          const durationDragged = snapToGrid(barsDragged * secondsPerBar, player.tempo);
 
           if (region.Is(RF.croppingLeft)) {
             const prevStart = region.start;
@@ -379,7 +432,6 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
 
             if (region.offsetEnd > 0) {
               region.offsetEnd = 0;
-              // region.end = prevEnd;
             }
 
             let illegal = false;
@@ -407,23 +459,6 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
     }
   }
 
-  // Region unselect
-  if (e.type === "mousedown") {
-    let regionWasSelected = false;
-    outer: for (const track of tracks) {
-      for (const region of track.regions) {
-        if (region.deleted) continue;
-        if (region.Is(RF.selected)) {
-          regionWasSelected = true;
-          break outer;
-        }
-      }
-    }
-    if (!regionWasSelected) {
-      input.ResetSelection(save);
-    }
-  }
-
   //
   // Play-head area controls
   //
@@ -431,11 +466,14 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
     const player = state.player;
 
     if (e.type === "mousedown") {
-      if (CollisionPointRect(mouseX, mouseY, 0, PLAYHEAD_Y, WIDTH, TRACK_START)) {
+      if (CollisionPointRect(mouseX, mouseY, 0, PLAYHEAD_Y + scrollY, WIDTH, PLAYHEAD_Y)) {
         player.isPlayheadDragged = true;
 
+        // Clicking on the top-bar while a region is selected should not deselect the currently selected region
+        regionSelected = input.selectedRegion;
+
         const time = pixelToTime(zoom, player.tempo, mouseX);
-        const snappedTime = snapTime(time, player.tempo);
+        const snappedTime = snapToGrid(time, player.tempo);
         player.SetElapsedTime(state, snappedTime);
       }
     }
@@ -443,18 +481,34 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
     if (e.type === "mousemove") {
       if (player.isPlayheadDragged) {
         const time = pixelToTime(zoom, player.tempo, mouseX);
-        const snappedTime = snapTime(time, player.tempo);
+        const snappedTime = snapToGrid(time, player.tempo);
         player.SetElapsedTime(state, snappedTime);
       }
     }
 
     if (e.type === "mouseup") {
+      if (player.isPlayheadDragged) {
+        player.isPlayheadDragged = false;
+        regionSelected = input.selectedRegion;
+      }
       player.isPlayheadDragged = false;
+    }
+  }
+
+  // Region deselect
+  {
+    // Clicked outside of every region?
+    if (e.type === "mousedown" && !regionSelected) {
+      input.selectedRegion = null;
+    }
+
+    if (e.type === "mouseup" && !regionSelected) {
+      input.selectedRegion = null;
     }
   }
 }
 
-const snapTime = (time: number, tempo: number) => {
+const snapToGrid = (time: number, tempo: number) => {
   const secondsPerUnit = 15.0 / tempo;
   const units = Math.round(time / secondsPerUnit);
 
@@ -464,9 +518,17 @@ const snapTime = (time: number, tempo: number) => {
 const pixelToTime = (zoom: number, tempo: number, x: number) => {
   const barWidth = zoom;
   const secondsPerBar = 240.0 / tempo;
-  const bars = ((x) / barWidth);
+  const bars = (x / barWidth);
   const elapsed = bars * secondsPerBar;
   return elapsed;
+}
+
+const timeToPixel = (zoom: number, tempo: number, time: number) => {
+  const barWidth = zoom;
+  const secondsPerBar = 240.0 / tempo;
+  const bars = time / secondsPerBar;
+  const x = bars * barWidth;
+  return x;
 }
 
 export const Timeline = () => {
@@ -483,8 +545,7 @@ export const Timeline = () => {
     height: 0,
   });
 
-  const [scrollX, setScrollX] = useState(0);
-  const [scrollY, setScrollY] = useState(0);
+  const player = state.player;
 
   useEffect(() => {
     const canvas: HTMLCanvasElement = document.getElementById("track-canvas");
@@ -494,7 +555,7 @@ export const Timeline = () => {
     canvas.setAttribute("height", `${canvas.clientHeight * dpi}`);
     canvas.setAttribute("width", `${canvas.clientWidth * dpi}`);
 
-    const canvasCtx: Canvas2D | null = canvas.getContext("2d", { alpha: false });
+    const canvasCtx: Canvas2D | null = canvas.getContext("2d", { alpha: true });
     if (!canvasCtx) {
       console.error(`Failed to instantiate canvas context`);
       return;
@@ -509,22 +570,26 @@ export const Timeline = () => {
 
     const canvas = canvasRef.current;
 
-    const targetFps = 60;
+    const targetFps = 90;
 
     let frameId = 0;
-    let lastFrameTime = 0;
-    const fpsInterval = 1000 / targetFps;
 
-    const renderLoop = (timestamp) => {
-      if (timestamp - lastFrameTime >= fpsInterval) {
-        lastFrameTime = timestamp;
+    const renderLoop = () => {
 
-        canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-        canvasCtx.save();
-        canvasCtx.setTransform(1, 0, 0, 1, -scrollX, -scrollY);
-        drawOneFrame(canvas, canvasCtx, zoom, state, scrollX, scrollY);
-        canvasCtx.restore();
+      // Scroll to center of playhead?
+      if (state.player.isPlaying) {
+        const x = timeToPixel(zoom, state.player.tempo, state.player.GetCurrentTime());
+        player.scrollX = x - canvasRef.current!.width / 2;
+        if (player.scrollX < 0) {
+          player.scrollX = 0;
+        }
       }
+
+      canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+      canvasCtx.save();
+      canvasCtx.setTransform(1, 0, 0, 1, -player.scrollX, -player.scrollY);
+      drawOneFrame(canvas, canvasCtx, zoom, state);
+      canvasCtx.restore();
 
       frameId = requestAnimationFrame(renderLoop)
     }
@@ -533,7 +598,7 @@ export const Timeline = () => {
     return () => {
       cancelAnimationFrame(frameId);
     }
-  }, [canvasCtx, zoom, state, viewport, scrollX, scrollY]);
+  }, [canvasCtx, zoom, state, viewport]);
 
   useEffect(() => {
     if (!canvasRef.current || !canvasCtx) return;
@@ -543,14 +608,10 @@ export const Timeline = () => {
     const handleScroll = (e: WheelEvent) => {
       e.preventDefault();
 
-      let newScrollX = scrollX + e.deltaX;
-      if (newScrollX < 0) newScrollX = 0;
-
-      let newScrollY = scrollY + e.deltaY;
-      if (newScrollY < 0) newScrollY = 0;
-
-      setScrollX(newScrollX);
-      setScrollY(newScrollY);
+      player.scrollX += e.deltaX;
+      player.scrollY += e.deltaY;
+      if (player.scrollX < 0) player.scrollX = 0;
+      if (player.scrollY < 0) player.scrollY = 0;
     }
 
     canvas.addEventListener("wheel", handleScroll);
@@ -558,13 +619,13 @@ export const Timeline = () => {
     return () => {
       canvas.removeEventListener("wheel", handleScroll);
     }
-  }, [canvasCtx, scrollX, scrollY]);
+  }, [canvasCtx, state]);
 
   useEffect(() => {
     if (!canvasRef.current || !canvasCtx) return;
     const canvas = canvasRef.current;
 
-    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(canvas, e, db, state, zoom, scrollX, scrollY);
+    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(canvas, e, db, state, zoom);
     const handleKeyboardInputCallback = (e: KeyboardEvent) => handleKeyboardInput(e, db, state, zoom);
 
     document.addEventListener("keydown", handleKeyboardInputCallback);
@@ -580,7 +641,7 @@ export const Timeline = () => {
       canvas.removeEventListener("mousedown", handleMouseInputCallback);
       document.removeEventListener("mouseup", handleMouseInputCallback);
     };
-  }, [canvasRef.current, zoom, state, scrollX, scrollY]);
+  }, [canvasRef.current, zoom, state]);
 
 
   // Pinch to zoom
@@ -623,12 +684,12 @@ export const Timeline = () => {
     };
 
     // Update on scroll & resize
-    container.addEventListener("scroll", updateViewport);
+    // container.addEventListener("scroll", updateViewport);
     window.addEventListener("resize", updateViewport);
     updateViewport(); // Initial update
 
     return () => {
-      container.removeEventListener("scroll", updateViewport);
+      // container.removeEventListener("scroll", updateViewport);
       window.removeEventListener("resize", updateViewport);
     };
   }, [canvasRef.current]);
