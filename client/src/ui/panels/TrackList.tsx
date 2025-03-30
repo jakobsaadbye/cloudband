@@ -86,7 +86,7 @@ export const TrackList = () => {
     }
 
     return (
-        <div className={twMerge("min-w-[300px] flex flex-col h-full bg-gray-300 border-2 border-black/40", fileBeingDropped && "border-2 border-blue-500")} onDrop={handleDrop} onDragOver={handleDragOver}>
+        <div className={twMerge("min-w-[300px] flex flex-col h-full border-2 border-black/40", fileBeingDropped && "border-2 border-blue-500")} onDrop={handleDrop} onDragOver={handleDragOver}>
             <div className="flex items-center h-[38px] w-full p-2 bg-black/40">
                 <p className="px-6 py-0.5 flex justify-center text-center w-8 rounded-lg font-semibold select-none bg-blue-500 text-gray-100 hover:bg-blue-600" onClick={openFilePicker}>+</p>
             </div>
@@ -114,7 +114,7 @@ const TrackCard = ({ track }: CardProps) => {
     const isSelected = input.selectedTrack?.id === track.id;
 
     return (
-        <div className={twMerge("flex items-center justify-between w-full h-[98px] p-2 bg-gray-300 border-b-1 border-gray-400", isSelected && "bg-gray-200")} onMouseDown={() => input.SelectTrack(ctx, track)}>
+        <div className={twMerge("flex items-center justify-between w-full h-[98px] p-2 bg-gray-200 border-b-1 border-gray-400", isSelected && "bg-gray-300")} onMouseDown={() => input.SelectTrack(ctx, track)}>
             <p className="text-sm select-none">{track.file.name}</p>
             <div className="flex gap-x-2">
                 <div className="flex gap-x-1">

@@ -3,6 +3,7 @@
 @source "../../../../teilen-sql/src/react/";
 
 @theme {
+    --color-gray-100: #ececec;
     --animate-spin-reverse: spin-reverse 1.0s linear infinite;
 
     @keyframes spin-reverse {

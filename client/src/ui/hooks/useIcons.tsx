@@ -6,6 +6,9 @@ import Beginning from "../assets/icons/beginning.svg?react"
 import Record from "../assets/icons/record.svg?react"
 import VolumeUp from "../assets/icons/volumeUp.svg?react"
 import Sync from "../assets/icons/sync.svg?react"
+import IconHistory from "../assets/icons/history.svg?react"
+import IconEdit from "../assets/icons/edit.svg?react"
+import IconVersion from "../assets/icons/version.svg?react"
 
 export const useIcons = () => {
     return {
@@ -17,5 +20,8 @@ export const useIcons = () => {
         Record,
         VolumeUp,
         Sync,
+        IconHistory,
+        IconEdit,
+        IconVersion,
     }
 }

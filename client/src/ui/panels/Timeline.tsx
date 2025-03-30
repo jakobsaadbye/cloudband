@@ -4,8 +4,9 @@ import { Context, useCtx } from "@core/context.ts";
 import { Region, RF } from "@core/track.ts";
 import { useDB } from "@jakobsaadbye/teilen-sql/react";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
-import { SavePlayer } from "@/db/save.ts";
+import { SavePlayer, SaveRegions } from "@/db/save.ts";
 import { Player } from "@core/player.ts";
+import { globalKeyboardInputIsDisabled } from "@core/input.ts";
 
 type Canvas2D = CanvasRenderingContext2D;
 
@@ -66,7 +67,7 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
   const HEIGHT = canvas.height + scrollY;
 
   // Background
-  ctx.fillStyle = "#AAAAAA";
+  ctx.fillStyle = "#CCCCCC";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   const barWidth = zoom;
@@ -245,6 +246,8 @@ const CollisionPointRect = (px: number, py: number, x: number, y: number, width:
 }
 
 const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoom: number) => {
+  if (globalKeyboardInputIsDisabled(e)) return;
+
   const input = state.player.input;
 
   let handled = false;
@@ -375,12 +378,15 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
         if (somethingChanged) {
           if (region.Is(RF.croppingLeft)) {
             input.Perfomed(state, "region-crop-start", [region, region.start, region.offsetStart, region.originalStart, region.originalOffsetStart]);
+            SaveRegions(db, [region]);
           }
           if (region.Is(RF.croppingRight)) {
             input.Perfomed(state, "region-crop-end", [region, region.end, region.offsetEnd, region.originalEnd, region.originalOffsetEnd]);
+            SaveRegions(db, [region]);
           }
           if (region.Is(RF.shifting)) {
             input.Perfomed(state, "region-shift", [region, region.start, region.end, region.originalStart, region.originalEnd]);
+            SaveRegions(db, [region]);
           }
         }
 

@@ -11,11 +11,12 @@ import { SaveEntireWorkspace, SaveTracks } from "@/db/save.ts";
 import { Region, Track } from "@core/track.ts";
 import { injectChangesIntoContext } from "@core/inject.ts";
 
-export const Sync = ({ syncer }: { syncer: Syncer }) => {
+export const AutoSync = () => {
     const ctx = useCtx();
     const db = useDB();
+    const syncer = useSyncer();
+
     const project = ctx.project;
-    const { Sync } = useIcons();
 
     const [showSaveMessage, setShowSaveMessage] = useState(false);
     const [spinSyncIcon, setSpinSyncIcon] = useState(false);

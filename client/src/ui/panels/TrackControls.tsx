@@ -6,9 +6,9 @@ export const TrackControls = () => {
     const P = ctx.player;
 
     return (
-        <div className="w-full h-full bg-gray-300 border-t-1 border-gray-600">
-            <header className="h-10 p-2 bg-gray-400">
-                <p className="text-white">Track</p>
+        <div className="w-full h-full border-t-1 border-gray-600">
+            <header className="h-10 p-2 bg-gray-300">
+                <p className="">Track</p>
             </header>
             <section className="flex p-2 gap-4">
                 <input type="checkbox" checked={P.sweepEnabled} onChange={e => P.SetSweepEnabled(ctx, !P.sweepEnabled)} />

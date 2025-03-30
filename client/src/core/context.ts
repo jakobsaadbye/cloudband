@@ -5,12 +5,14 @@ import { Project, TrackList } from "@core/track.ts";
 import { Cache } from "@core/cache.ts";
 import { Workspace } from "@core/workspace.ts";
 import { createFileManager, FileManager } from "@core/file_manager.ts";
+import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 
 const audioContext = new AudioContext();
 const audioElement: HTMLMediaElement = document.getElementById("audio-element");
 
 export type Context = {
     S: (ctx) => void
+    db: SqliteDB
 
     player: Player,
     trackList: TrackList
@@ -29,6 +31,7 @@ const fileManager = await createFileManager();
 
 const stateCtx: Context = {
     S: (c) => {}, // A setter function for changing any value in the context. Its instantiated in App.tsx to react's 'setX' in useState so that it knows when values change in the context and can re-render any components dependend on that value ...
+    db: null,
     
     player,
     trackList,

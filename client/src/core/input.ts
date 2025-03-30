@@ -1,7 +1,7 @@
 import { Region, Track } from "./track.ts";
 import { Context } from "./context.ts";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
-import { SaveEntireWorkspace, SaveRegions } from "../db/save.ts";
+import { SaveEntireWorkspace, SaveRegions, SaveTracks } from "../db/save.ts";
 import { undo, redo } from "@core/undo.ts";
 
 export type ActionKind =
@@ -65,13 +65,13 @@ class PlayerInput {
         const index = this.undoBuffer.length - this.undos;
         const lastAction = this.undoBuffer[index];
         switch (lastAction.kind) {
-            case "region-delete": return undo.RegionDelete(lastAction);
-            case "region-paste": return undo.RegionPaste(lastAction);
-            case "region-crop-start": return undo.RegionCropStart(lastAction);
-            case "region-crop-end": return undo.RegionCropEnd(lastAction);
-            case "region-shift": return undo.RegionShift(lastAction);
-            case "region-split": return undo.RegionSplit(lastAction);
-            case "track-delete": return undo.TrackDelete(lastAction);
+            case "region-delete": return undo.RegionDelete(ctx, lastAction);
+            case "region-paste": return undo.RegionPaste(ctx, lastAction);
+            case "region-crop-start": return undo.RegionCropStart(ctx, lastAction);
+            case "region-crop-end": return undo.RegionCropEnd(ctx, lastAction);
+            case "region-shift": return undo.RegionShift(ctx, lastAction);
+            case "region-split": return undo.RegionSplit(ctx, lastAction);
+            case "track-delete": return undo.TrackDelete(ctx, lastAction);
         }
     }
 
@@ -85,13 +85,13 @@ class PlayerInput {
         const index = this.undoBuffer.length - this.undos - 1;
         const lastAction = this.undoBuffer[index];
         switch (lastAction.kind) {
-            case "region-delete": return redo.RegionDelete(lastAction);
-            case "region-paste": return redo.RegionPaste(lastAction);
-            case "region-crop-start": return redo.RegionCropStart(lastAction);
-            case "region-crop-end": return redo.RegionCropEnd(lastAction);
-            case "region-shift": return redo.RegionShift(lastAction);
-            case "region-split": return redo.RegionSplit(lastAction);
-            case "track-delete": return redo.TrackDelete(lastAction);
+            case "region-delete": return redo.RegionDelete(ctx, lastAction);
+            case "region-paste": return redo.RegionPaste(ctx, lastAction);
+            case "region-crop-start": return redo.RegionCropStart(ctx, lastAction);
+            case "region-crop-end": return redo.RegionCropEnd(ctx, lastAction);
+            case "region-shift": return redo.RegionShift(ctx, lastAction);
+            case "region-split": return redo.RegionSplit(ctx, lastAction);
+            case "track-delete": return redo.TrackDelete(ctx, lastAction);
         }
     }
 
@@ -124,6 +124,7 @@ class PlayerInput {
 
         track.regions.push(newRegion);
         this.Perfomed(ctx, "region-paste", newRegion);
+        SaveRegions(ctx.db, [newRegion]);
     }
 
     DeleteRegion(ctx: Context) {
@@ -132,6 +133,7 @@ class PlayerInput {
 
         const copy = this.selectedRegion;
         this.Perfomed(ctx, "region-delete", copy);
+        SaveRegions(ctx.db, [this.selectedRegion]);
     }
 
     SplitRegion(ctx: Context) {
@@ -157,6 +159,7 @@ class PlayerInput {
         track.regions.push(B);
         this.selectedRegion = B;
         this.Perfomed(ctx, "region-split", [A, B]);
+        SaveRegions(ctx.db, [A, B]);
     }
 
     DeleteTrack(ctx: Context) {
@@ -167,6 +170,7 @@ class PlayerInput {
 
         track.deleted = true;
         this.Perfomed(ctx, "track-delete", [track]);
+        SaveTracks(ctx.db, [track]);
     }
 
     ResetSelection(save: () => void) {
@@ -183,10 +187,6 @@ class PlayerInput {
     SelectTrack(ctx: Context, track: Track) {
         this.selectedTrack = track;
         ctx.S({ ...ctx });
-    }
-
-    RegionChanged(db: SqliteDB, region: Region) {
-        SaveRegions(db, [region])
     }
 }
 

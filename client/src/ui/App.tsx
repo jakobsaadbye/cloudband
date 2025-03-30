@@ -5,25 +5,35 @@ import { Context, StateCtx, stateCtx } from "../core/context.ts";
 
 import { PlayControls } from "./components/PlayControls.tsx";
 import { Timeline } from "./panels/Timeline.tsx";
-import { History } from "./panels/History.tsx";
+import { EditHistory } from "./components/EditHistory.tsx";
 import { TrackControls } from "./panels/TrackControls.tsx";
 import { TrackList } from "./panels/TrackList.tsx";
 import { LoadWorkspace } from "../db/load.ts";
-import { useDB } from "@jakobsaadbye/teilen-sql/react";
+import { SyncContext, useDB } from "@jakobsaadbye/teilen-sql/react";
 import { ProjectControls } from "@ui/components/ProjectControls.tsx";
-import { Sync } from "@ui/components/Sync.tsx";
+import { AutoSync } from "./components/AutoSync.tsx";
 import { Syncer } from "@jakobsaadbye/teilen-sql";
+import { CommitHistory } from "./components/CommitHistory.tsx";
+
+const baseServerUrl = "http://127.0.0.1:3000";
 
 function App() {
 
   const db = useDB();
   const [ctx, setCtx] = useState(stateCtx);
-  const [syncer, setSyncer] = useState(new Syncer(db, ""));
+  const [syncer, setSyncer] = useState(new Syncer(db, {
+    pullEndpoint: baseServerUrl + "/pull-changes",
+    pushEndpoint: baseServerUrl + "/push-changes",
+  }));
 
   useEffect(() => {
     const initializeWorkspace = async () => {
       try {
-        const context: Context = { ...ctx, S: setCtx };
+        const context: Context = {
+          ...ctx,
+          S: setCtx,
+          db: db,
+        };
 
         await LoadWorkspace(context, db);
       } catch (e) {
@@ -36,31 +46,34 @@ function App() {
 
   return (
     <StateCtx.Provider value={{ ...ctx, S: setCtx }}>
-      <Sync syncer={syncer} />
-      <main className="w-full h-[100vh] overflow-hidden">
+      <SyncContext.Provider value={syncer}>
+        <AutoSync />
+        <main className="w-full h-[100vh] overflow-hidden">
 
-        {/* Top Section */}
-        <div className="flex justify-between items-center w-full gap-x-4 p-2 h-18 bg-gray-50 border-b-1 border-b-black/40">
-          <ProjectControls />
-          <PlayControls />
-          <div></div>
-        </div>
+          {/* Top Section */}
+          <div className="flex justify-between items-center w-full gap-x-4 p-2 h-18 bg-white border-b-1 border-b-black/40">
+            <ProjectControls />
+            <PlayControls />
+            <div></div>
+          </div>
 
-        <div className="flex w-full h-full">
-          <TrackList />
+          <div className="flex w-full h-full bg-gray-100">
+            <TrackList />
 
-          <div className="flex flex-col w-full">
-            <Timeline />
-            <div className="h-[300px]">
-              <TrackControls />
+            <div className="flex flex-col w-full">
+              <Timeline />
+              <div className="h-[300px] bg-gray-100">
+                <TrackControls />
+              </div>
+            </div>
+
+            <div className="w-100 h-full bg-gray-100 border-l-1 border-l-black/40">
+              <EditHistory />
+              <CommitHistory />
             </div>
           </div>
-
-          <div className="w-100 h-full bg-gray-300 border-l-1 border-l-black/40">
-            <History />
-          </div>
-        </div>
-      </main>
+        </main>
+      </SyncContext.Provider>
     </StateCtx.Provider>
   )
 }

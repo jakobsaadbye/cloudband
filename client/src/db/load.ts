@@ -84,11 +84,13 @@ const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
         track.isUploaded = row.isUploaded ? true : false;
         track.deleted = row.deleted ? true : false;
 
-        try {
-            await trackList.LoadTrack(ctx, track, true); // We don't save the file; nor create the first region when loading
-        } catch (e) {
-            console.error(`Failed to load track ${track.file.name}`);
-            continue;
+        if (!track.deleted) {
+            try {
+                await trackList.LoadTrack(ctx, track, true); // We don't save the file; nor create the first region when loading
+            } catch (e) {
+                console.error(`Failed to load track ${track.file.name}`);
+                continue;
+            }
         }
     }
     
@@ -105,7 +107,7 @@ const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
             region.start = row.start;
             region.end = row.end;
             region.totalDuration = row.totalDuration;
-            region.flags = row.flags;
+            region.flags = 0 // row.flags;
             region.deleted = row.deleted ? true : false;
 
 
