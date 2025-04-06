@@ -1,9 +1,25 @@
 import { audioContext, Context } from "./context.ts";
+import { Entity } from "@core/entity.ts";
 import { generateId } from "./id.ts";
 
 type TrackKind = 'audio' | 'midi'
 
-class Track {
+class Track implements Entity {
+    table = "tracks";
+    static serializedFields = [
+        "id",
+        "projectId",
+        "volume",
+        "pan",
+        "kind",
+        "filename",
+        "isUploaded",
+        "deleted",
+        "muted",
+        "mutedBySolo",
+        "soloed",
+    ] as const;
+
     id: string
     projectId: string
     kind: TrackKind
@@ -22,6 +38,9 @@ class Track {
     regions: Region[]
 
     deleted: boolean
+    muted: boolean
+    mutedBySolo: boolean
+    soloed: boolean
 
     constructor(kind: TrackKind, file: File, projectId: string) {
         this.id = generateId();
@@ -44,7 +63,12 @@ class Track {
         this.regions = [];
 
         this.deleted = false;
+        this.muted = false;
+        this.mutedBySolo = false;
+        this.soloed = false;
     }
+    serializedFields: any[];
+    table: string;
 
     initAnalyser() {
         const analyser = new AnalyserNode(audioContext);
@@ -80,9 +104,8 @@ class Track {
             console.warn(`Track has not yet been loaded`);
             return;
         }
-        if (this.deleted) {
-            return;
-        }
+        if (this.deleted) return;
+        if (this.muted || this.mutedBySolo) return;
 
         for (const region of this.regions) {
             region.Play(ctx, this);
@@ -117,7 +140,20 @@ const RF = { // Region_Flags
     held: 4 | 8 | 16,
 }
 
-class Region {
+class Region implements Entity {
+    table = "regions";
+    static serializedFields = [
+        "id",
+        "projectId",
+        "trackId",
+        "offsetStart",
+        "offsetEnd",
+        "start",
+        "end",
+        "totalDuration",
+        "deleted",
+    ] as const;
+
     id: string
     projectId: string
     trackId: string
@@ -232,95 +268,8 @@ class Region {
     }
 }
 
-class TrackList {
-    selectedIndex: number
-    tracks: Track[]
-
-    constructor() {
-        this.selectedIndex = 0;
-        this.tracks = [];
-    }
-
-    async LoadTrack(ctx: Context, track: Track, performingReload: boolean) {
-        const fileContent = await track.file.arrayBuffer();
-
-        // Save the audio file to disk
-        if (!performingReload) {
-            await ctx.fileManager.WriteLocalFile(ctx.project.id, "tracks", track.file.name, fileContent);
-        }
-
-        let audioBuffer = ctx.cache.getAudioData(track.id);
-        if (!audioBuffer) {
-            audioBuffer = await audioContext.decodeAudioData(fileContent);
-            ctx.cache.setAudioData(track.id, audioBuffer);
-        }
-
-        // Make the first region
-        if (!performingReload) {
-            const region = new Region(track.id, ctx.project.id);
-            region.data = audioBuffer;
-            region.start = 0.0;
-            region.end = audioBuffer.duration;
-            region.totalDuration = audioBuffer.duration;
-            track.regions.push(region);
-        }
-
-        track.audioData = audioBuffer;
-
-        // Load in the frequency data to be visualized
-        track.frequencyData = this.loadReducedFrequencyData(ctx, track.id, audioBuffer);
-
-        track.isLoaded = true;
-
-        this.tracks.push(track);
-
-        if (!performingReload) {
-            ctx.S({ ...ctx });
-        }
-    }
-
-    loadReducedFrequencyData(ctx: Context, trackId: string, audioBuffer: AudioBuffer) {
-        const cached = ctx.cache.getFrequencyData(trackId);
-        if (cached) {
-            return cached;
-        }
-
-        const rawData = audioBuffer.getChannelData(0);
-        const samples = rawData.length / 500;
-        const blockSize = Math.floor(rawData.length / samples);
-
-        const reducedRawData = new Float32Array(samples).fill(0);
-        for (let i = 0; i < samples; i++) {
-            const blockStart = i * blockSize;
-            let sum = 0;
-            for (let j = 0; j < blockSize; j++) {
-                sum += Math.abs(rawData[blockStart + j]);
-            }
-            const avg = sum / blockSize;
-            reducedRawData[i] = avg;
-        }
-
-        // Normalize all the values
-        let maxValue = -Infinity;
-        for (let i = 0; i < reducedRawData.length; i++) {
-            if (reducedRawData[i] > maxValue) {
-                maxValue = reducedRawData[i];
-            }
-        }
-        const normal = (1.0 / maxValue);
-        for (let i = 0; i < reducedRawData.length; i++) {
-            reducedRawData[i] = reducedRawData[i] * normal;
-        }
-
-        ctx.cache.setFrequencyData(trackId, reducedRawData);
-
-        return reducedRawData;
-    }
-}
-
 export {
   Track,
-  TrackList, 
   Region,
   RF,
 };

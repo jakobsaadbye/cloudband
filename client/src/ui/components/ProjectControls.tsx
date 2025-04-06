@@ -5,7 +5,7 @@ import { useIcons } from "@ui/hooks/useIcons.tsx";
 import { useCtx } from "@core/context.ts";
 import { LoadProject } from "@/db/load.ts";
 import { useDB, useQuery, useSyncer } from "@jakobsaadbye/teilen-sql/react";
-import { SaveEntity, SaveProject } from "@/db/save.ts";
+import { SaveEntity, SaveEntities } from "@/db/save.ts";
 import { handlePull, handlePush } from "@core/sync.ts";
 import { Hud } from "@ui/components/Hud.tsx";
 import { CommitHud } from "./CommitHud.tsx";
@@ -80,7 +80,7 @@ export const ProjectControls = () => {
 
     const toggleLivemode = async () => {
         project.livemodeEnabled = !project.livemodeEnabled;
-        await SaveProject(db, project);
+        await SaveEntities(db, [project]);
         ctx.S({...ctx});
     }
 
@@ -153,7 +153,7 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
     const createProject = async () => {
         const project = new Project();
         project.lastAccessed = (new Date).getTime();
-        await SaveProject(db, project);
+        await SaveEntities(db, [project]);
         await LoadProject(ctx, db, project.id);
         ctx.S({ ...ctx });
     }
@@ -162,8 +162,10 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
         if (project.id === ctx.project.id) return;
 
         await LoadProject(ctx, db, project.id);
-        project.lastAccessed = (new Date).getTime();
-        await SaveProject(db, project);
+
+        const openedProject = ctx.project;
+        openedProject.lastAccessed = (new Date).getTime();
+        await SaveEntities(db, [openedProject]);
         ctx.S({ ...ctx });
     }
 

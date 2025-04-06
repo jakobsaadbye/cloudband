@@ -1,7 +1,7 @@
 import { Context } from "@core/context.ts";
 import { Change, Syncer } from "@jakobsaadbye/teilen-sql";
-import { ReloadWorkspace } from "@/db/load.ts";
-import { SaveTracks } from "@/db/save.ts";
+import { ReloadProject } from "@/db/load.ts";
+import { SaveEntities } from "@/db/save.ts";
 import { Track } from "@core/track.ts";
 
 export const handlePull = async (ctx: Context, syncer: Syncer) => {
@@ -14,7 +14,7 @@ export const handlePull = async (ctx: Context, syncer: Syncer) => {
 
     await postProcessAppliedChanges(ctx, appliedChanges);
 
-    await ReloadWorkspace(ctx, ctx.db, appliedChanges);
+    await ReloadProject(ctx, ctx.db, appliedChanges);
 }
 
 export const handlePush = async (ctx: Context, syncer: Syncer) => {
@@ -38,7 +38,7 @@ export const handlePush = async (ctx: Context, syncer: Syncer) => {
     
             track.isUploaded = true;
         }
-        await SaveTracks(ctx.db, nonUploadedTracks);
+        await SaveEntities(ctx.db, nonUploadedTracks);
     }
 
     

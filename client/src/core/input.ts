@@ -1,7 +1,7 @@
 import { Region, Track } from "./track.ts";
 import { Context } from "./context.ts";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
-import { SaveEntireWorkspace, SaveRegions, SaveTracks } from "../db/save.ts";
+import { SaveEntireProject, SaveEntities, SaveEntities } from "../db/save.ts";
 import { undo, redo } from "@core/undo.ts";
 
 export type ActionKind =
@@ -43,7 +43,7 @@ class PlayerInput {
     async SaveAll(ctx: Context, db: SqliteDB) {
         const t1 = performance.now();
 
-        await SaveEntireWorkspace(db, ctx);
+        await SaveEntireProject(db, ctx);
 
         const t2 = performance.now();
 
@@ -124,7 +124,7 @@ class PlayerInput {
 
         track.regions.push(newRegion);
         this.Perfomed(ctx, "region-paste", newRegion);
-        SaveRegions(ctx.db, [newRegion]);
+        SaveEntities(ctx.db, [newRegion]);
     }
 
     DeleteRegion(ctx: Context) {
@@ -133,7 +133,7 @@ class PlayerInput {
 
         const copy = this.selectedRegion;
         this.Perfomed(ctx, "region-delete", copy);
-        SaveRegions(ctx.db, [this.selectedRegion]);
+        SaveEntities(ctx.db, [this.selectedRegion]);
     }
 
     SplitRegion(ctx: Context) {
@@ -159,7 +159,7 @@ class PlayerInput {
         track.regions.push(B);
         this.selectedRegion = B;
         this.Perfomed(ctx, "region-split", [A, B]);
-        SaveRegions(ctx.db, [A, B]);
+        SaveEntities(ctx.db, [A, B]);
     }
 
     DeleteTrack(ctx: Context) {
@@ -170,7 +170,7 @@ class PlayerInput {
 
         track.deleted = true;
         this.Perfomed(ctx, "track-delete", [track]);
-        SaveTracks(ctx.db, [track]);
+        SaveEntities(ctx.db, [track]);
     }
 
     ResetSelection(save: () => void) {

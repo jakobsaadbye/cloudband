@@ -1,10 +1,10 @@
 // @deno-types="npm:@types/react@19"
 import { useEffect, useState, useRef } from "react";
 import { Context, useCtx } from "@core/context.ts";
-import { Region, RF } from "@core/track.ts";
+import { RF } from "@core/track.ts";
 import { useDB } from "@jakobsaadbye/teilen-sql/react";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
-import { SavePlayer, SaveRegions } from "@/db/save.ts";
+import { SaveEntities } from "@/db/save.ts";
 import { Player } from "@core/player.ts";
 import { globalKeyboardInputIsDisabled } from "@core/input.ts";
 
@@ -41,7 +41,7 @@ const DrawStrokedRectangle = (ctx: Canvas2D, x: number, y: number, width: number
   ctx.stroke();
 }
 
-const regionColorPresets = [
+const REGION_COLORS = [
   "#ffca69",
   "#69aaff",
   "#4fd663",
@@ -49,6 +49,9 @@ const regionColorPresets = [
   "#f55f5f",
   "#d45ff5",
 ];
+
+const REGION_COLOR_BG_MUTED = "#c0c0c0";
+const REGION_COLOR_FREQ_MUTED = "#c0c0c0";
 
 let zoomScale = 0;
 
@@ -96,8 +99,8 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
 
     const trackHeight = 192;
     let trackIndex = 0;
-    for (let i = 0; i < state.trackList.tracks.length; i++) {
-      const track = state.trackList.tracks[i];
+    for (let i = 0; i < state.trackManager.tracks.length; i++) {
+      const track = state.trackManager.tracks[i];
       if (track.deleted) continue;
 
       for (const region of track.regions) {
@@ -114,7 +117,11 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
 
         y += gapY * trackIndex;
 
-        const bgColor = regionColorPresets[i];
+        let bgColor = REGION_COLORS[i];
+        if (track.muted || track.mutedBySolo) {
+          bgColor = REGION_COLOR_BG_MUTED;
+        }
+
         let outline = "#303030";
         if (input.selectedRegion === region) {
           outline = "#FFFFFF";
@@ -138,6 +145,9 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
         const frequencyData = track.frequencyData;
 
         ctx.fillStyle = "#FFFFFF";
+        if (track.muted || track.mutedBySolo) {
+          ctx.fillStyle = "#E0E0E0";
+        }
 
         const regionWidthBeforeCutting = region.totalDuration / secondsPerBar * barWidth;
         const cuttedX = region.offsetStart / secondsPerBar * barWidth;
@@ -321,7 +331,7 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
   //
   let regionSelected = null;
 
-  const tracks = state.trackList.tracks;
+  const tracks = state.trackManager.tracks;
   for (let i = 0; i < tracks.length; i++) {
     const track = tracks[i];
 
@@ -378,15 +388,15 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
         if (somethingChanged) {
           if (region.Is(RF.croppingLeft)) {
             input.Perfomed(state, "region-crop-start", [region, region.start, region.offsetStart, region.originalStart, region.originalOffsetStart]);
-            SaveRegions(db, [region]);
+            SaveEntities(db, [region]);
           }
           if (region.Is(RF.croppingRight)) {
             input.Perfomed(state, "region-crop-end", [region, region.end, region.offsetEnd, region.originalEnd, region.originalOffsetEnd]);
-            SaveRegions(db, [region]);
+            SaveEntities(db, [region]);
           }
           if (region.Is(RF.shifting)) {
             input.Perfomed(state, "region-shift", [region, region.start, region.end, region.originalStart, region.originalEnd]);
-            SaveRegions(db, [region]);
+            SaveEntities(db, [region]);
           }
         }
 

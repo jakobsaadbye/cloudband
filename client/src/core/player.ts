@@ -1,13 +1,13 @@
 import { wavetable } from "./wavetable.ts";
 import { Context, audioContext } from "./context.ts";
-import { TrackList } from "./track.ts";
+import { TrackManager } from "@core/trackManager.ts";
 import { PlayerInput } from "./input.ts";
 import { generateId } from "./id.ts";
 
 class Player {
     id: string
     projectId: string
-    trackList: TrackList
+    trackManager: TrackManager
 
     input: PlayerInput
 
@@ -48,10 +48,10 @@ class Player {
         imag: wavetable.imag
     });
 
-    constructor(trackList: TrackList, projectId: string) {
+    constructor(trackManager: TrackManager, projectId: string) {
         this.id = generateId();
         this.projectId = projectId;
-        this.trackList = trackList;
+        this.trackManager = trackManager;
 
         this.input = new PlayerInput();
 
@@ -201,7 +201,7 @@ class Player {
 
         this.recalibrateBarAndBeat(ctx);
 
-        for (const track of this.trackList.tracks) {
+        for (const track of this.trackManager.tracks) {
             track.Play(ctx);
         }
 
@@ -216,7 +216,7 @@ class Player {
         this.pausedAt = audioContext.currentTime;
         this.elapsedTime += this.pausedAt - this.startedAt;
 
-        for (const track of this.trackList.tracks) {
+        for (const track of this.trackManager.tracks) {
             track.Pause(ctx);
         }
 

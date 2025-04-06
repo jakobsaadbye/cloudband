@@ -1,9 +1,8 @@
 // @deno-types="npm:@types/react@19"
 import { createContext, useContext } from "react";
 import { Player } from "@core/player.ts";
-import { TrackList } from "@core/track.ts";
+import { TrackManager } from "@core/trackManager.ts";
 import { Cache } from "@core/cache.ts";
-import { Workspace } from "@core/workspace.ts";
 import { createFileManager, FileManager } from "@core/file_manager.ts";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 import { Project } from "@core/project.ts";
@@ -16,17 +15,15 @@ export type Context = {
     db: SqliteDB
 
     player: Player,
-    trackList: TrackList
+    trackManager: TrackManager
     project: Project,
-    workspace: Workspace,
     cache: Cache,
     fileManager: FileManager
 }
 
 const project = new Project();
-const trackList = new TrackList();
-const player = new Player(trackList, project.id);
-const workspace = new Workspace();
+const trackManager = new TrackManager();
+const player = new Player(trackManager, project.id);
 const cache = new Cache()
 const fileManager = await createFileManager();
 
@@ -35,9 +32,8 @@ const stateCtx: Context = {
     db: null,
     
     player,
-    trackList,
+    trackManager,
     project,
-    workspace,
     cache,
     fileManager
 };

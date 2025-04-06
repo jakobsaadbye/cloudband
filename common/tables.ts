@@ -2,10 +2,6 @@ export const tables = `
 
 BEGIN;
 
-CREATE TABLE IF NOT EXISTS workspace (
-    id text primary key
-);
-
 CREATE TABLE IF NOT EXISTS projects (
     id text primary key,
     name text,
@@ -31,8 +27,11 @@ CREATE TABLE IF NOT EXISTS tracks (
     volume float,
     pan float,
     filename text,
-    isUploaded int,
-    deleted int
+    isUploaded boolean,
+    deleted boolean,
+    muted boolean,
+    mutedBySolo boolean,
+    soloed boolean
 );
 
 CREATE TABLE IF NOT EXISTS regions (
@@ -45,7 +44,7 @@ CREATE TABLE IF NOT EXISTS regions (
     end double,
     totalDuration double,
     flags int,
-    deleted int
+    deleted boolean
 );
 
 COMMIT;

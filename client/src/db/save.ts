@@ -1,41 +1,65 @@
-import { SqliteDB, sqlPlaceholders } from "@jakobsaadbye/teilen-sql";
+import { SqliteDB, sqlPlaceholders, sqlPlaceholdersNxM } from "@jakobsaadbye/teilen-sql";
 import { Context } from "../core/context.ts";
 import { Player } from "../core/player.ts";
 import { Region, Track } from "../core/track.ts";
 import { Project } from "@core/project.ts";
-import { Workspace } from "@core/workspace.ts";
 import { ProjectRow } from "@/db/types.ts";
 import { Entity } from "@core/entity.ts";
 
-export const SaveEntireWorkspace = async (db: SqliteDB, ctx: Context) => {
-    await SaveWorkspace(db, ctx.workspace);
-    await SaveProject(db, ctx.project);
-    await SaveTracks(db, ctx.trackList.tracks);
-    const regions = ctx.trackList.tracks.reduce((vals, track) => { vals.push(...track.regions); return vals }, [] as Region[]);
-    await SaveRegions(db, regions);
+export const SaveEntireProject = async (db: SqliteDB, ctx: Context) => {
+    await SaveEntities(db, [ctx.project]);
+    await SaveEntities(db, ctx.trackManager.tracks);
+    const regions = ctx.trackManager.tracks.reduce((vals, track) => { vals.push(...track.regions); return vals }, [] as Region[]);
+    await SaveEntities(db, regions);
     await SavePlayer(db, ctx.player);
 }
 
-export const SaveEntity = async (db: SqliteDB, e: Entity) => {
-    const baseExcludedFields = ["table", "serializedFields"];
+const serialize = (e: Entity) => {
+    const serializedFields = e.constructor.prototype.constructor.serializedFields as string[];
 
-    let fields: [string, any][] = [];
-    if (e.serializedFields[0] === "*") {
-        fields = Object.entries(e)
-            .filter(([field, value]) => {
-                if (typeof (value) === "object") return false;
-                if (typeof (value) === "function") return false;
-                if (baseExcludedFields.includes(field)) return false;
-                return true;
-            })
-            .map(([field, value]) => {
-                if (typeof (value) === "boolean") return [field, value ? 1 : 0];
-                return [field, value];
-            });
+    const fields: [string, any][] = Object.entries(e)
+        .filter(([field, value]) => {
+            if (serializedFields.includes(field)) return true;
+            return false;
+        })
+        .map(([field, value]) => {
+            if (typeof (value) === "boolean") return [field, value ? 1 : 0];
+            return [field, value];
+        });
+
+    return fields;
+}
+
+export const SaveEntities = async (db: SqliteDB, entities: Entity[]) => {
+    if (entities.length === 0) return;
+
+    const e = entities[0];
+
+    const serialized = entities.map(serialize);
+
+    const obj = serialized[0];
+
+    const columns = obj.map(([field, _]) => field);
+    const values = serialized.map(obj => obj.map(([_, value]) => value)).reduce((acc, vals) => {acc.push(...vals); return acc}, [] as any[]);
+
+    const updateStr = columns.filter(col => col !== "id").map(col => `${col} = EXCLUDED.${col}`).join(',\n\t\t\t');
+
+    const err = await db.execTrackChanges(`
+        INSERT INTO "${e.table}" (${columns.join(', ')}) 
+        VALUES ${sqlPlaceholdersNxM(obj.length, serialized.length)}
+        ON CONFLICT DO UPDATE SET
+            ${updateStr}
+    `, values);
+    if (err) {
+        console.error(err);
     }
+}
 
-    const columns = fields.map(([name, _]) => name);
-    const values = fields.map(([_, value]) => value);
+export const SaveEntity = async (db: SqliteDB, e: Entity) => {
+    const obj = serialize(e);
+
+    const columns = obj.map(([field, _]) => field);
+    const values = obj.map(([_, value]) => value);
 
     const updateStr = columns.filter(col => col !== "id").map(col => `${col} = EXCLUDED.${col}`).join(',\n');
 
@@ -102,107 +126,6 @@ export const SavePlayer = async (db: SqliteDB, player: Player) => {
         player.input.selectedRegion ? player.input.selectedRegion.id : null,
         player.input.undos
     ], player.projectId);
-    if (err) {
-        console.error(err);
-    }
-}
-
-export const SaveTracks = async (db: SqliteDB, tracks: Track[]) => {
-    if (tracks.length === 0) return;
-
-    const values = tracks.reduce((vals, track) => {
-        vals.push(...[
-            track.id,
-            track.projectId,
-            track.volume,
-            track.pan,
-            track.kind,
-            track.filename,
-            track.isUploaded ? 1 : 0,
-            track.deleted ? 1 : 0,
-        ]);
-        return vals
-    }, [] as any[]);
-
-    const err = await db.execTrackChanges(`
-        INSERT INTO "tracks" (
-            id,
-            projectId,
-            volume,
-            pan,
-            kind,
-            filename,
-            isUploaded,
-            deleted
-        ) VALUES ${tracks.map(_ => `(?,?,?,?,?,?,?,?) `)}
-        ON CONFLICT DO UPDATE SET
-            volume = EXCLUDED.volume,
-            pan = EXCLUDED.pan,
-            kind = EXCLUDED.kind,
-            filename = EXCLUDED.filename,
-            isUploaded = EXCLUDED.isUploaded,
-            deleted = EXCLUDED.deleted
-    `, values, tracks[0].projectId);
-    if (err) {
-        console.error(err);
-    }
-}
-
-export const SaveRegions = async (db: SqliteDB, regions: Region[]) => {
-    if (regions.length === 0) return;
-
-    const values = regions.reduce((vals, region) => {
-        vals.push(...[
-            region.id,
-            region.projectId,
-            region.trackId,
-            region.offsetStart,
-            region.offsetEnd,
-            region.start,
-            region.end,
-            region.totalDuration,
-            region.flags,
-            region.deleted ? 1 : 0,
-        ]);
-        return vals
-    }, [] as any[]);
-
-    const err = await db.execTrackChanges(`
-        INSERT INTO "regions" (
-            id,
-            projectId,
-            trackId,
-            offsetStart,
-            offsetEnd,
-            start,
-            end,
-            totalDuration,
-            flags,
-            deleted
-        ) VALUES ${regions.map(_ => `(?,?,?,?,?,?,?,?,?,?) `)}  
-        ON CONFLICT DO UPDATE SET
-            trackId = EXCLUDED.trackId,
-            offsetStart = EXCLUDED.offsetStart,
-            offsetEnd = EXCLUDED.offsetEnd,
-            start = EXCLUDED.start,
-            end = EXCLUDED.end,
-            totalDuration = EXCLUDED.totalDuration,
-            flags = EXCLUDED.flags,
-            deleted = EXCLUDED.deleted
-    `, values, regions[0].projectId);
-    if (err) {
-        console.error(err);
-    }
-}
-
-export const SaveWorkspace = async (db: SqliteDB, workspace: Workspace) => {
-    const err = await db.exec(`
-        INSERT OR IGNORE INTO "workspace" (
-            id
-        ) VALUES (?)
-    `, [
-        workspace.id,
-    ]);
     if (err) {
         console.error(err);
     }

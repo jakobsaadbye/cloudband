@@ -1,15 +1,11 @@
 // @deno-types="npm:@types/react@19"
 import { useEffect, useState } from "react";
-import { Context, useCtx } from "@core/context.ts";
+import { useCtx } from "@core/context.ts";
 import { useDB, useSyncer } from "@jakobsaadbye/teilen-sql/react";
-import { Change, SqliteDB, sqlPlaceholders, Syncer, SyncEvent } from "@jakobsaadbye/teilen-sql";
-import { useIcons } from "@ui/hooks/useIcons.tsx";
-import { twMerge } from "tailwind-merge";
-import { RegionRow } from "@/db/types.ts";
-import { LoadProject, ReloadWorkspace } from "@/db/load.ts";
-import { SaveEntireWorkspace, SaveTracks } from "@/db/save.ts";
-import { Region, Track } from "@core/track.ts";
-import { injectChangesIntoContext } from "@core/inject.ts";
+import { Syncer, SyncEvent } from "@jakobsaadbye/teilen-sql";
+import { ReloadProject } from "@/db/load.ts";
+import { SaveEntities } from "@/db/save.ts";
+import { Track } from "@core/track.ts";
 
 export const AutoSync = () => {
     const ctx = useCtx();
@@ -53,7 +49,7 @@ export const AutoSync = () => {
             track.isUploaded = true;
         }
 
-        await SaveTracks(db, nonUploadedTracks);
+        await SaveEntities(db, nonUploadedTracks);
     }
 
     useEffect(() => {
@@ -91,7 +87,7 @@ export const AutoSync = () => {
 
             console.log(`Pulled ${changes.length} changes`);
 
-            await ReloadWorkspace(ctx, db, changes);
+            await ReloadProject(ctx, db, changes);
         }
 
         syncer.addEventListener("change", handleIncommingChanges);

@@ -6,7 +6,7 @@ import { twMerge } from "tailwind-merge";
 import { useIcons } from "@ui/hooks/useIcons.tsx";
 import { useDB, useQuery } from "@jakobsaadbye/teilen-sql/react";
 import { Commit } from "@jakobsaadbye/teilen-sql";
-import { ReloadWorkspace } from "@/db/load.ts";
+import { ReloadProject } from "@/db/load.ts";
 import { CollapsablePanel } from "@ui/components/CollapsablePanel.tsx";
 
 export const CommitHistory = () => {
@@ -18,7 +18,7 @@ export const CommitHistory = () => {
 
     const checkoutCommit = async (commit: Commit) => {
         await db.checkout(commit.id);
-        await ReloadWorkspace(ctx, db, []);
+        await ReloadProject(ctx, db, []);
     }
     
     const { IconVersion } = useIcons();

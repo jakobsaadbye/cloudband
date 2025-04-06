@@ -1,13 +1,7 @@
-export type WorkspaceRow = {
-    id: string
-}
+import { Region, Track } from "@core/track.ts";
+import { Project } from "@core/project.ts";
 
-export type ProjectRow = {
-    id: string
-    name: string
-    lastAccessed: number
-    livemodeEnabled: boolean
-}
+export type ProjectRow = Pick<Project, typeof Project.serializedFields[number]>;
 
 export type PlayerRow = {
     id: string
@@ -20,26 +14,5 @@ export type PlayerRow = {
     input_undos: number
 }
 
-export type TrackRow = {
-    id: string
-    projectId: string
-    volume: number
-    pan: number
-    kind: string
-    filename: string
-    isUploaded: boolean
-    deleted: boolean
-}
-
-export type RegionRow = {
-    id: string
-    projectId: string
-    trackId: string
-    offsetStart: number
-    offsetEnd: number
-    start: number
-    end: number
-    totalDuration: number
-    flags: number
-    deleted: number
-}
+export type TrackRow = Pick<Track, typeof Track.serializedFields[number]>;
+export type RegionRow = Pick<Region, typeof Region.serializedFields[number]>;
