@@ -25,7 +25,8 @@ export const LoadWorkspace = async (ctx: Context, db: SqliteDB) => {
 
     if (recentProjects.length === 0) {
         const project = new Project();
-        await SaveEntity(db, project);
+        ctx.project = project;
+        await SaveEntity(ctx, project);
         await LoadProject(ctx, db, project.id);
     } else {
         await LoadProject(ctx, db, recentProjects[0].id);

@@ -15,7 +15,6 @@ import { ProjectRow } from "@/db/types.ts";
 export const ProjectControls = () => {
 
     const ctx = useCtx();
-    const db = useDB();
     const project = ctx.project;
 
     const [isSyncing, setIsSyncing] = useState(false);
@@ -70,7 +69,7 @@ export const ProjectControls = () => {
             return;
         } else {
             setOriginalProjectName(project.name);
-            await SaveEntity(db, project);
+            await SaveEntity(ctx, project);
         }
     }
 
@@ -80,7 +79,7 @@ export const ProjectControls = () => {
 
     const toggleLivemode = async () => {
         project.livemodeEnabled = !project.livemodeEnabled;
-        await SaveEntities(db, [project]);
+        await SaveEntities(ctx, [project]);
         ctx.S({...ctx});
     }
 
@@ -153,7 +152,9 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
     const createProject = async () => {
         const project = new Project();
         project.lastAccessed = (new Date).getTime();
-        await SaveEntities(db, [project]);
+        ctx.project = project;
+        
+        await SaveEntities(ctx, [project]);
         await LoadProject(ctx, db, project.id);
         ctx.S({ ...ctx });
     }
@@ -165,7 +166,7 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
 
         const openedProject = ctx.project;
         openedProject.lastAccessed = (new Date).getTime();
-        await SaveEntities(db, [openedProject]);
+        await SaveEntities(ctx, [openedProject]);
         ctx.S({ ...ctx });
     }
 

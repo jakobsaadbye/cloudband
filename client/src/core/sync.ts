@@ -38,7 +38,7 @@ export const handlePush = async (ctx: Context, syncer: Syncer) => {
     
             track.isUploaded = true;
         }
-        await SaveEntities(ctx.db, nonUploadedTracks);
+        await SaveEntities(ctx, nonUploadedTracks);
     }
 
     

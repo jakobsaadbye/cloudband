@@ -1,17 +1,15 @@
 import { SqliteDB, sqlPlaceholders, sqlPlaceholdersNxM } from "@jakobsaadbye/teilen-sql";
-import { Context } from "../core/context.ts";
-import { Player } from "../core/player.ts";
-import { Region, Track } from "../core/track.ts";
-import { Project } from "@core/project.ts";
-import { ProjectRow } from "@/db/types.ts";
+import { Context } from "@core/context.ts";
+import { Player } from "@core/player.ts";
+import { Region } from "@core/track.ts";
 import { Entity } from "@core/entity.ts";
 
-export const SaveEntireProject = async (db: SqliteDB, ctx: Context) => {
-    await SaveEntities(db, [ctx.project]);
-    await SaveEntities(db, ctx.trackManager.tracks);
+export const SaveEntireProject = async (ctx: Context) => {
+    await SaveEntities(ctx, [ctx.project]);
+    await SaveEntities(ctx, ctx.trackManager.tracks);
     const regions = ctx.trackManager.tracks.reduce((vals, track) => { vals.push(...track.regions); return vals }, [] as Region[]);
-    await SaveEntities(db, regions);
-    await SavePlayer(db, ctx.player);
+    await SaveEntities(ctx, regions);
+    await SavePlayer(ctx.db, ctx.player);
 }
 
 const serialize = (e: Entity) => {
@@ -30,13 +28,13 @@ const serialize = (e: Entity) => {
     return fields;
 }
 
-export const SaveEntities = async (db: SqliteDB, entities: Entity[]) => {
+export const SaveEntities = async (ctx: Context, entities: Entity[]) => {
     if (entities.length === 0) return;
-
-    const e = entities[0];
+    const db = ctx.db;
+    
+    const documentId = ctx.project.id;
 
     const serialized = entities.map(serialize);
-
     const obj = serialized[0];
 
     const columns = obj.map(([field, _]) => field);
@@ -45,56 +43,18 @@ export const SaveEntities = async (db: SqliteDB, entities: Entity[]) => {
     const updateStr = columns.filter(col => col !== "id").map(col => `${col} = EXCLUDED.${col}`).join(',\n\t\t\t');
 
     const err = await db.execTrackChanges(`
-        INSERT INTO "${e.table}" (${columns.join(', ')}) 
+        INSERT INTO "${entities[0].table}" (${columns.join(', ')}) 
         VALUES ${sqlPlaceholdersNxM(obj.length, serialized.length)}
         ON CONFLICT DO UPDATE SET
             ${updateStr}
-    `, values);
+    `, values, documentId);
     if (err) {
         console.error(err);
     }
 }
 
-export const SaveEntity = async (db: SqliteDB, e: Entity) => {
-    const obj = serialize(e);
-
-    const columns = obj.map(([field, _]) => field);
-    const values = obj.map(([_, value]) => value);
-
-    const updateStr = columns.filter(col => col !== "id").map(col => `${col} = EXCLUDED.${col}`).join(',\n');
-
-    const err = await db.execTrackChanges(`
-        INSERT INTO "${e.table}" (${columns.join(',')}) 
-        VALUES (${sqlPlaceholders(values)})
-        ON CONFLICT DO UPDATE SET
-            ${updateStr}
-    `, values, e.id);
-    if (err) {
-        console.error(err);
-    }
-}
-
-export const SaveProject = async (db: SqliteDB, project: Project | ProjectRow) => {
-    const err = await db.execTrackChanges(`
-        INSERT INTO "projects" (
-            id,
-            name,
-            lastAccessed,
-            livemodeEnabled
-        ) VALUES (?, ?, ?, ?)
-        ON CONFLICT DO UPDATE SET
-            name = EXCLUDED.name,
-            lastAccessed = EXCLUDED.lastAccessed,
-            livemodeEnabled = EXCLUDED.livemodeEnabled
-    `, [
-        project.id,
-        project.name,
-        project.lastAccessed,
-        project.livemodeEnabled ? 1 : 0
-    ], project.id);
-    if (err) {
-        console.error(err);
-    }
+export const SaveEntity = async (ctx: Context, e: Entity) => {
+    return await SaveEntities(ctx, [e]);
 }
 
 export const SavePlayer = async (db: SqliteDB, player: Player) => {

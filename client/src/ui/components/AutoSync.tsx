@@ -49,7 +49,7 @@ export const AutoSync = () => {
             track.isUploaded = true;
         }
 
-        await SaveEntities(db, nonUploadedTracks);
+        await SaveEntities(ctx, nonUploadedTracks);
     }
 
     useEffect(() => {

@@ -50,7 +50,7 @@ export const TrackList = () => {
             track.isUploaded = true;
             console.log(`Uploaded file '${file.name}'`);
         }
-        await SaveEntireProject(db, ctx);
+        await SaveEntireProject(ctx);
     }
 
     const handleDrop = (ev: Event) => {
@@ -106,8 +106,6 @@ type CardProps = {
 const TrackCard = ({ track }: CardProps) => {
     const ctx = useCtx();
 
-    const db = useDB();
-
     const trackManager = ctx.trackManager;
     const input = ctx.player.input;
 
@@ -119,14 +117,14 @@ const TrackCard = ({ track }: CardProps) => {
         e.preventDefault();
         e.stopPropagation();
         trackManager.SoloTrack(ctx, track);
-        await SaveEntities(db, trackManager.tracks);
+        await SaveEntities(ctx, trackManager.tracks);
     }
 
     const toggleMute = async (e: Event) => {
         e.preventDefault();
         e.stopPropagation();
         trackManager.MuteTrack(ctx, track);
-        await SaveEntities(db, trackManager.tracks);
+        await SaveEntities(ctx, trackManager.tracks);
     }
 
     return (

@@ -265,7 +265,7 @@ const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoo
 
   if (e.metaKey && key === "s") {
     handled = true;
-    input.SaveAll(state, db);
+    input.SaveAll(state);
   }
 
   if (e.metaKey && key === "c") {
@@ -388,15 +388,15 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
         if (somethingChanged) {
           if (region.Is(RF.croppingLeft)) {
             input.Perfomed(state, "region-crop-start", [region, region.start, region.offsetStart, region.originalStart, region.originalOffsetStart]);
-            SaveEntities(db, [region]);
+            SaveEntities(state, [region]);
           }
           if (region.Is(RF.croppingRight)) {
             input.Perfomed(state, "region-crop-end", [region, region.end, region.offsetEnd, region.originalEnd, region.originalOffsetEnd]);
-            SaveEntities(db, [region]);
+            SaveEntities(state, [region]);
           }
           if (region.Is(RF.shifting)) {
             input.Perfomed(state, "region-shift", [region, region.start, region.end, region.originalStart, region.originalEnd]);
-            SaveEntities(db, [region]);
+            SaveEntities(state, [region]);
           }
         }
 
