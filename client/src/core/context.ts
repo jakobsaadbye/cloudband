@@ -1,11 +1,12 @@
 // @deno-types="npm:@types/react@19"
 import { createContext, useContext } from "react";
 import { Player } from "@core/player.ts";
-import { Project, TrackList } from "@core/track.ts";
+import { TrackList } from "@core/track.ts";
 import { Cache } from "@core/cache.ts";
 import { Workspace } from "@core/workspace.ts";
 import { createFileManager, FileManager } from "@core/file_manager.ts";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
+import { Project } from "@core/project.ts";
 
 const audioContext = new AudioContext();
 const audioElement: HTMLMediaElement = document.getElementById("audio-element");

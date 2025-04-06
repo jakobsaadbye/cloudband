@@ -1,7 +1,8 @@
 import { Change, SqliteDB } from "@jakobsaadbye/teilen-sql";
 import { ProjectRow, PlayerRow, RegionRow, TrackRow, WorkspaceRow } from "./types.ts";
 import { Player } from "../core/player.ts";
-import { Project, TrackKind, TrackList } from "../core/track.ts";
+import { TrackKind, TrackList } from "../core/track.ts";
+import { Project } from "@core/project.ts";
 import { Context } from "../core/context.ts";
 import { Track } from "../core/track.ts";
 import { Region } from "../core/track.ts";
@@ -47,7 +48,7 @@ export const LoadWorkspace = async (ctx: Context, db: SqliteDB) => {
     ctx.S({...ctx});
 }
 
-const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
+export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
     console.time("load-project");
     // console.profile("load-project");
 
@@ -173,9 +174,6 @@ const projectRow2Project = (projectRow: ProjectRow) => {
     p.id = projectRow.id;
     p.name = projectRow.name;
     p.lastAccessed = projectRow.lastAccessed;
+    p.livemodeEnabled = projectRow.livemodeEnabled ? true : false;
     return p;
-}
-
-export {
-    LoadProject
 }

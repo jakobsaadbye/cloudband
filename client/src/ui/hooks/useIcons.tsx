@@ -9,6 +9,11 @@ import Sync from "../assets/icons/sync.svg?react"
 import IconHistory from "../assets/icons/history.svg?react"
 import IconEdit from "../assets/icons/edit.svg?react"
 import IconVersion from "../assets/icons/version.svg?react"
+import ArrowUp from "../assets/icons/arrow_up.svg?react"
+import ArrowDown from "../assets/icons/arrow_down.svg?react"
+import ArrowLeft from "../assets/icons/arrow_left.svg?react"
+import ArrowRight from "../assets/icons/arrow_right.svg?react"
+import PeopleGroup from "../assets/icons/people_group.svg?react"
 
 export const useIcons = () => {
     return {
@@ -23,5 +28,10 @@ export const useIcons = () => {
         IconHistory,
         IconEdit,
         IconVersion,
+        ArrowUp,
+        ArrowDown,
+        ArrowLeft,
+        ArrowRight,
+        PeopleGroup,
     }
 }

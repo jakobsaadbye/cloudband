@@ -1,4 +1,4 @@
-import { Project } from "@core/track.ts";
+import { Project } from "@core/project.ts";
 import { generateId } from "@core/id.ts";
 
 export class Workspace {

@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS workspace (
 CREATE TABLE IF NOT EXISTS projects (
     id text primary key,
     name text,
-    lastAccessed int
+    lastAccessed int,
+    livemodeEnabled boolean
 );
 
 CREATE TABLE IF NOT EXISTS players (

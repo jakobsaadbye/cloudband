@@ -318,30 +318,13 @@ class TrackList {
     }
 }
 
-class Project {
-    id: string
-    name: string
-    lastAccessed: number
-
-    constructor() {
-        this.id = generateId();
-        this.name = "Untitled";
-        this.lastAccessed = 0;
-    }
-
-    SetName(ctx: Context, value: string) {
-        this.name = value;
-        ctx.S({...ctx});
-    }
-}
-
 export {
   Track,
   TrackList, 
   Region,
   RF,
-  Project
 };
+
 export type { 
     TrackKind 
 };

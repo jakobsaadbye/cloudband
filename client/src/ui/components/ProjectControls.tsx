@@ -4,11 +4,13 @@ import { twMerge } from "tailwind-merge";
 import { useIcons } from "@ui/hooks/useIcons.tsx";
 import { useCtx } from "@core/context.ts";
 import { LoadProject } from "@/db/load.ts";
-import { useDB, useSyncer } from "@jakobsaadbye/teilen-sql/react";
-import { SaveProject } from "@/db/save.ts";
+import { useDB, useQuery, useSyncer } from "@jakobsaadbye/teilen-sql/react";
+import { SaveEntity, SaveProject } from "@/db/save.ts";
 import { handlePull, handlePush } from "@core/sync.ts";
 import { Hud } from "@ui/components/Hud.tsx";
 import { CommitHud } from "./CommitHud.tsx";
+import { Project } from "@core/project.ts";
+import { ProjectRow } from "@/db/types.ts";
 
 export const ProjectControls = () => {
 
@@ -68,7 +70,7 @@ export const ProjectControls = () => {
             return;
         } else {
             setOriginalProjectName(project.name);
-            await SaveProject(db, project);
+            await SaveEntity(db, project);
         }
     }
 
@@ -76,7 +78,13 @@ export const ProjectControls = () => {
         project.SetName(ctx, e.target.value);
     }
 
-    const { Sync } = useIcons();
+    const toggleLivemode = async () => {
+        project.livemodeEnabled = !project.livemodeEnabled;
+        await SaveProject(db, project);
+        ctx.S({...ctx});
+    }
+
+    const { Sync, Record, PeopleGroup } = useIcons();
 
     return (
         <div className="ml-2 flex gap-x-2 items-center select-none">
@@ -99,6 +107,11 @@ export const ProjectControls = () => {
 
                     <p className="text-sm text-gray-700 py-1 px-2 hover:bg-gray-200 rounded-sm">Edit</p>
                     <p className="text-sm text-gray-700 py-1 px-2 hover:bg-gray-200 rounded-sm">View</p>
+                    {/* Live mode */}
+                    <div title="Live mode" className="flex items-center gap-x-0.5 ml-2 px-3 py-1 hover:bg-gray-200 hover:border-gray-400 rounded-sm" onClick={toggleLivemode}>
+                        <PeopleGroup className="w-5 h-5 fill-gray-700" />
+                        <div className={twMerge("bg-gray-500 rounded-full w-2 h-2", project.livemodeEnabled && "bg-red-600")} />
+                    </div>
 
                     {isSyncing && <Sync className="ml-4 fill-gray-600 w-5 h-5 animate-spin-reverse" />}
                 </div>
@@ -129,7 +142,7 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
     const db = useDB();
     const syncer = useSyncer();
 
-    const workspace = ctx.workspace;
+    const projects = useQuery<ProjectRow[]>(`SELECT * FROM "projects" ORDER BY lastAccessed DESC`, []).data;
 
     const preventShenanigans = (e: Event) => {
         // Prevents the menu from closing when clicking on one of the items
@@ -137,16 +150,30 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
         e.stopPropagation();
     }
 
-    const openProject = async (projectId: string) => {
-        await LoadProject(ctx, db, projectId);
+    const createProject = async () => {
+        const project = new Project();
+        project.lastAccessed = (new Date).getTime();
+        await SaveProject(db, project);
+        await LoadProject(ctx, db, project.id);
+        ctx.S({ ...ctx });
+    }
+
+    const openProject = async (project: ProjectRow) => {
+        if (project.id === ctx.project.id) return;
+
+        await LoadProject(ctx, db, project.id);
+        project.lastAccessed = (new Date).getTime();
+        await SaveProject(db, project);
         ctx.S({ ...ctx });
     }
 
     const openRecentMenuItems = () => {
-        return workspace.projects.map(project => {
+        if (!projects) return [];
+
+        return projects.map(project => {
             const item: Item = {
                 title: project.name,
-                onClick: (e) => openProject(project.id)
+                onClick: (e) => openProject(project)
             }
             return item;
         });
@@ -170,7 +197,7 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
     }
 
     const items = [
-        { title: "New", onClick: () => { }, divide: true },
+        { title: "New", onClick: createProject, divide: true },
         { title: "Open...", onClick: () => { } },
         {
             title: "Open Recent", onClick: () => { }, submenu: openRecentMenuItems(), divide: true

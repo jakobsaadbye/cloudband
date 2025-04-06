@@ -6,6 +6,7 @@ export type ProjectRow = {
     id: string
     name: string
     lastAccessed: number
+    livemodeEnabled: boolean
 }
 
 export type PlayerRow = {

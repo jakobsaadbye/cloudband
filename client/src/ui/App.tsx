@@ -51,7 +51,7 @@ function App() {
         <main className="w-full h-[100vh] overflow-hidden">
 
           {/* Top Section */}
-          <div className="flex justify-between items-center w-full gap-x-4 p-2 h-18 bg-white border-b-1 border-b-black/40">
+          <div className="flex justify-between items-center w-full gap-x-4 p-2 h-18 bg-gray-50">
             <ProjectControls />
             <PlayControls />
             <div></div>
@@ -62,14 +62,16 @@ function App() {
 
             <div className="flex flex-col w-full">
               <Timeline />
-              <div className="h-[300px] bg-gray-100">
+              {/* <div className="h-[300px] bg-gray-100">
                 <TrackControls />
-              </div>
+              </div> */}
             </div>
 
             <div className="w-100 h-full bg-gray-100 border-l-1 border-l-black/40">
-              <EditHistory />
-              <CommitHistory />
+              <div className="flex flex-col">
+                <EditHistory />
+                <CommitHistory />
+              </div>
             </div>
           </div>
         </main>

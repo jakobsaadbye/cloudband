@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useCtx } from "@core/context.ts";
 import { twMerge } from "tailwind-merge";
 import { useIcons } from "@ui/hooks/useIcons.tsx";
+import { CollapsablePanel } from "@ui/components/CollapsablePanel.tsx";
 
 export const EditHistory = () => {
     const ctx = useCtx();
@@ -24,14 +25,8 @@ export const EditHistory = () => {
     const { IconHistory, IconEdit } = useIcons();
 
     return (
-        <div className="p-2">
-            <div className="flex gap-x-1 pb-1">
-                <div className="flex justify-center items-center">
-                    <IconHistory className="fill-gray-500 w-4 h-4" />
-                </div>
-                <p className="font-semibold text-gray-600 text-sm">Edits</p>
-            </div>
-            <div ref={listElement} className="flex flex-col h-64 bg-white select-none overflow-scroll rounded-sm shadow-sm">
+        <CollapsablePanel label="Edits" icon={<IconEdit className="fill-gray-500 w-4 h-4" />}>
+            <div ref={listElement} className="flex h-64 flex-col overflow-scroll select-none">
                 {input.undoBuffer.map((action, i) => {
                     const undos = input.undos;
                     const headIndex = input.undoBuffer.length - undos - 1;
@@ -44,6 +39,6 @@ export const EditHistory = () => {
                     )
                 })}
             </div>
-        </div>
+        </CollapsablePanel>
     )
 }

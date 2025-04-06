@@ -3,7 +3,10 @@
 @source "../../../../teilen-sql/src/react/";
 
 @theme {
-    --color-gray-100: #ececec;
+    /* --color-gray-100: #ececec; */
+    --color-gray-50: #f4f5f5;
+    --color-gray-100: #f0f0f0;
+    --color-gray-250: #d8dce3;
     --animate-spin-reverse: spin-reverse 1.0s linear infinite;
 
     @keyframes spin-reverse {
