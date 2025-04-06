@@ -67,8 +67,6 @@ class Track implements Entity {
         this.mutedBySolo = false;
         this.soloed = false;
     }
-    serializedFields: any[];
-    table: string;
 
     initAnalyser() {
         const analyser = new AnalyserNode(audioContext);

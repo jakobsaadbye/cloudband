@@ -15,15 +15,13 @@ export const SaveEntireProject = async (ctx: Context) => {
 const serialize = (e: Entity) => {
     const serializedFields = e.constructor.prototype.constructor.serializedFields as string[];
 
-    const fields: [string, any][] = Object.entries(e)
-        .filter(([field, value]) => {
-            if (serializedFields.includes(field)) return true;
-            return false;
-        })
-        .map(([field, value]) => {
+    const fields: [string, any][] = serializedFields
+        .map(field => {
+            const value = e[field];
             if (typeof (value) === "boolean") return [field, value ? 1 : 0];
             return [field, value];
         });
+
 
     return fields;
 }
@@ -31,14 +29,14 @@ const serialize = (e: Entity) => {
 export const SaveEntities = async (ctx: Context, entities: Entity[]) => {
     if (entities.length === 0) return;
     const db = ctx.db;
-    
+
     const documentId = ctx.project.id;
 
     const serialized = entities.map(serialize);
     const obj = serialized[0];
 
     const columns = obj.map(([field, _]) => field);
-    const values = serialized.map(obj => obj.map(([_, value]) => value)).reduce((acc, vals) => {acc.push(...vals); return acc}, [] as any[]);
+    const values = serialized.map(obj => obj.map(([_, value]) => value)).reduce((acc, vals) => { acc.push(...vals); return acc }, [] as any[]);
 
     const updateStr = columns.filter(col => col !== "id").map(col => `${col} = EXCLUDED.${col}`).join(',\n\t\t\t');
 

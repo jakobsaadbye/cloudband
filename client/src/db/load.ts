@@ -80,6 +80,8 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
         for (const row of relatedRegions) {
             const region = new Region(row.trackId, row.projectId);
             deserialize(region, row);
+            region.data = track.audioData;
+            
             track.regions.push(region);
         }
     }
