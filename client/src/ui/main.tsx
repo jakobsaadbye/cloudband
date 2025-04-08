@@ -16,6 +16,8 @@ await db.upgradeTableToCrr("projects");
 await db.upgradeTableToCrr("players");
 await db.upgradeTableToCrr("tracks");
 await db.upgradeTableToCrr("regions");
+await db.upgradeTableToCrr("undo_stack");
+await db.upgradeTableToCrr("input");
 await db.finalize();
 
 createRoot(document.getElementById('root') as HTMLElement).render(

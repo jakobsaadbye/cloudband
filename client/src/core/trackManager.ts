@@ -63,6 +63,20 @@ export class TrackManager {
         return false;
     }
 
+    GetRegionWithId(id: string) {
+        for (const track of this.tracks) {
+            for (const region of track.regions) {
+                if (region.id === id) return region;
+            }
+        }
+    }
+
+    GetTrackWithId(id: string) {
+        for (const track of this.tracks) {
+            if (track.id === id) return track;
+        }
+    }
+
     async LoadTrack(ctx: Context, track: Track, performingReload: boolean) {
         const fileContent = await track.file.arrayBuffer();
 

@@ -9,7 +9,7 @@ import { SaveEntity, SaveEntities } from "@/db/save.ts";
 import { handlePull, handlePush } from "@core/sync.ts";
 import { Hud } from "@ui/components/Hud.tsx";
 import { CommitHud } from "./CommitHud.tsx";
-import { Project } from "@core/project.ts";
+import { CreateNewProject, Project } from "@core/project.ts";
 import { ProjectRow } from "@/db/types.ts";
 
 export const ProjectControls = () => {
@@ -150,13 +150,7 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
     }
 
     const createProject = async () => {
-        const project = new Project();
-        project.lastAccessed = (new Date).getTime();
-        ctx.project = project;
-        
-        await SaveEntities(ctx, [project]);
-        await LoadProject(ctx, db, project.id);
-        ctx.S({ ...ctx });
+        await CreateNewProject(ctx);
     }
 
     const openProject = async (project: ProjectRow) => {
@@ -224,7 +218,7 @@ const DropdownList = ({ items, isSubmenu }: { items: Item[], isSubmenu?: boolean
         <div
             autoFocus
             tabIndex={0}
-            className={twMerge("absolute p-1 flex flex-col w-60 bg-white shadow-sm shadow-gray-400 rounded-r-sm rounded-b-sm focus:outline-none", isSubmenu && "-top-0 left-full hidden group-hover:block")}
+            className={twMerge("absolute z-50 p-1 flex flex-col w-60 bg-white shadow-sm shadow-gray-400 rounded-r-sm rounded-b-sm focus:outline-none", isSubmenu && "-top-0 left-full hidden group-hover:block")}
         >
             {items.map((item, i) => {
                 return (

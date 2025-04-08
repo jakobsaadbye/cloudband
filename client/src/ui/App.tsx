@@ -6,7 +6,6 @@ import { Context, StateCtx, stateCtx } from "../core/context.ts";
 import { PlayControls } from "./components/PlayControls.tsx";
 import { Timeline } from "./panels/Timeline.tsx";
 import { EditHistory } from "./components/EditHistory.tsx";
-import { TrackControls } from "./panels/TrackControls.tsx";
 import { TrackList } from "./panels/TrackList.tsx";
 import { LoadWorkspace } from "../db/load.ts";
 import { SyncContext, useDB } from "@jakobsaadbye/teilen-sql/react";

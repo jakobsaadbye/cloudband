@@ -4,88 +4,88 @@ import { Context } from "@core/context.ts";
 import { SaveEntities } from "@/db/save.ts";
 
 export const undo = {
-    RegionDelete(ctx: Context, action: Action) {
-        const region = action.data as Region;
+    async RegionDelete(ctx: Context, action: Action) {
+        const [region] = action.data as [Region];
         region.deleted = false;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionPaste(ctx: Context, action: Action) {
-        const region = action.data as Region;
+    async RegionPaste(ctx: Context, action: Action) {
+        const [region] = action.data as [Region];
         region.deleted = true;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionCropStart(ctx: Context, action: Action) {
+    async RegionCropStart(ctx: Context, action: Action) {
         const [region, start, offset, origStart, origOffset] = action.data as [Region, number, number, number, number];
         region.start = origStart;
         region.offsetStart = origOffset;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionCropEnd(ctx: Context, action: Action) {
+    async RegionCropEnd(ctx: Context, action: Action) {
         const [region,,, origEnd, origOffset] = action.data as [Region, number, number, number, number];
         region.end = origEnd;
         region.offsetEnd = origOffset;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionShift(ctx: Context, action: Action) {
+    async RegionShift(ctx: Context, action: Action) {
         const [region,,, origStart, origEnd] = action.data as [Region, number, number, number, number];
         region.start = origStart;
         region.end = origEnd;
         region.originalStart = origStart;
         region.originalEnd = origEnd;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionSplit(ctx: Context, action: Action) {
+    async RegionSplit(ctx: Context, action: Action) {
         const [A, B] = action.data as [Region, Region];
         A.end = B.end;
         B.deleted = true;
-        SaveEntities(ctx, [A, B]);
+        await SaveEntities(ctx, [A, B]);
     },
-    TrackDelete(ctx: Context, action: Action) {
+    async TrackDelete(ctx: Context, action: Action) {
         const [track] = action.data as [Track];
         track.deleted = false;
-        SaveEntities(ctx, [track]);
+        await SaveEntities(ctx, [track]);
     },
 }
 
 export const redo = {
-    RegionDelete(ctx: Context, action: Action) {
-        const region = action.data as Region;
+    async RegionDelete(ctx: Context, action: Action) {
+        const [region] = action.data as [Region];
         region.deleted = true;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionPaste(ctx: Context, action: Action) {
-        const region = action.data as Region;
+    async RegionPaste(ctx: Context, action: Action) {
+        const [region] = action.data as [Region];
         region.deleted = false;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionCropStart(ctx: Context, action: Action) {
-        const [region, start, offset] = action.data as [Region, number, number, number, number];
+    async RegionCropStart(ctx: Context, action: Action) {
+        const [region, start, offset] = action.data as [Region, number, number];
         region.start = start;
         region.offsetStart = offset;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionCropEnd(ctx: Context, action: Action) {
-        const [region, end, offset] = action.data as [Region, number, number, number, number];
+    async RegionCropEnd(ctx: Context, action: Action) {
+        const [region, end, offset] = action.data as [Region, number, number];
         region.end = end;
         region.offsetEnd = offset;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionShift(ctx: Context, action: Action) {
-        const [region, start, end] = action.data as [Region, number, number, number, number];
+    async RegionShift(ctx: Context, action: Action) {
+        const [region, start, end] = action.data as [Region, number, number];
         region.start = start;
         region.end = end;
-        SaveEntities(ctx, [region]);
+        await SaveEntities(ctx, [region]);
     },
-    RegionSplit(ctx: Context, action: Action) {
+    async RegionSplit(ctx: Context, action: Action) {
         const [A, B] = action.data as [Region, Region];
         
         A.end = B.start;
         B.deleted = false;
-        SaveEntities(ctx, [A, B]);
+        await SaveEntities(ctx, [A, B]);
     },
-    TrackDelete(ctx: Context, action: Action) {
+    async TrackDelete(ctx: Context, action: Action) {
         const [track] = action.data as [Track];
         track.deleted = true;
-        SaveEntities(ctx, [track]);
+        await SaveEntities(ctx, [track]);
     }
 }

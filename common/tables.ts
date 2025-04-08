@@ -14,10 +14,7 @@ CREATE TABLE IF NOT EXISTS players (
     projectId references projects(id),
     volume float,
     tempo int,
-    elapsedTime double,
-    input_selectedTrack  references tracks(id),
-    input_selectedRegion references regions(id),
-    input_undos int
+    elapsedTime double
 );
 
 CREATE TABLE IF NOT EXISTS tracks (
@@ -45,6 +42,23 @@ CREATE TABLE IF NOT EXISTS regions (
     totalDuration double,
     flags int,
     deleted boolean
+);
+
+CREATE TABLE IF NOT EXISTS undo_stack (
+    position integer,
+    projectId text,
+    action text,
+    data text,
+
+    primary key (position, projectId)
+);
+
+CREATE TABLE IF NOT EXISTS input (
+    id text primary key,
+    projectId text,
+    selectedTrack  references tracks(id),
+    selectedRegion references regions(id),
+    undos int
 );
 
 COMMIT;

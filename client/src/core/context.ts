@@ -6,6 +6,7 @@ import { Cache } from "@core/cache.ts";
 import { createFileManager, FileManager } from "@core/file_manager.ts";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 import { Project } from "@core/project.ts";
+import { PlayerInput } from "@core/input.ts";
 
 const audioContext = new AudioContext();
 const audioElement: HTMLMediaElement = document.getElementById("audio-element");
@@ -14,16 +15,18 @@ export type Context = {
     S: (ctx) => void
     db: SqliteDB
 
-    player: Player,
+    player: Player
+    input: PlayerInput
     trackManager: TrackManager
-    project: Project,
-    cache: Cache,
+    project: Project
+    cache: Cache
     fileManager: FileManager
 }
 
 const project = new Project();
 const trackManager = new TrackManager();
 const player = new Player(trackManager, project.id);
+const input = new PlayerInput(project.id);
 const cache = new Cache()
 const fileManager = await createFileManager();
 
@@ -32,6 +35,7 @@ const stateCtx: Context = {
     db: null,
     
     player,
+    input,
     trackManager,
     project,
     cache,

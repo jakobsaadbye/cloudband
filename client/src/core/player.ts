@@ -1,15 +1,23 @@
 import { wavetable } from "./wavetable.ts";
 import { Context, audioContext } from "./context.ts";
 import { TrackManager } from "@core/trackManager.ts";
-import { PlayerInput } from "./input.ts";
 import { generateId } from "./id.ts";
+import { Entity } from "@core/entity.ts";
 
-class Player {
+class Player implements Entity {
+    table = "players";
     id: string
     projectId: string
-    trackManager: TrackManager
 
-    input: PlayerInput
+    static serializedFields = [
+        "id",
+        "projectId",
+        "volume",
+        "tempo",
+        "elapsedTime",
+    ] as const
+
+    trackManager: TrackManager
 
     volumer: GainNode;
     panner: StereoPannerNode;
@@ -53,8 +61,6 @@ class Player {
         this.projectId = projectId;
         this.trackManager = trackManager;
 
-        this.input = new PlayerInput();
-
         this.volumer = new GainNode(audioContext);
         this.panner = new StereoPannerNode(audioContext, { pan : 0 });
 
@@ -86,6 +92,10 @@ class Player {
 
         this.isPlaying = false;
         this.isPlayheadDragged = false;
+    }
+
+    set volume(value: number) {
+        this.volumer.gain.value = value;
     }
     
     get volume() {

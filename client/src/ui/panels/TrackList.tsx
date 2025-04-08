@@ -34,7 +34,7 @@ export const TrackList = () => {
             if (!files) return;
 
             for (const file of files) {
-                LoadTrackFromFile(file);       
+                LoadTrackFromFile(file);
             }
         }
     }
@@ -107,7 +107,7 @@ const TrackCard = ({ track }: CardProps) => {
     const ctx = useCtx();
 
     const trackManager = ctx.trackManager;
-    const input = ctx.player.input;
+    const input = ctx.input;
 
     const { VolumeUp, VolumeOff, Headset } = useIcons();
 
@@ -135,15 +135,26 @@ const TrackCard = ({ track }: CardProps) => {
                     <Headset className={twMerge("w-4.5 h-4.5 fill-gray-700", track.soloed && "fill-gray-50")} />
                 </div>
                 <div className={twMerge("p-1 rounded-sm flex gap-x-1", (track.muted || track.mutedBySolo) && "bg-gray-500")} title="Mute/Unmute this track" onMouseDown={toggleMute}>
-                    { (!track.muted && !track.mutedBySolo) && <VolumeUp className={twMerge("w-5 h-5 fill-gray-700")} />}
-                    { (track.muted || track.mutedBySolo) && <VolumeOff className={twMerge("w-5 h-5 fill-gray-50")} />}
-                    {/* <input title="Volume" className="w-16" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} /> */}
+                    {(!track.muted && !track.mutedBySolo) && <VolumeUp className={twMerge("w-5 h-5 fill-gray-700")} />}
+                    {(track.muted || track.mutedBySolo) && <VolumeOff className={twMerge("w-5 h-5 fill-gray-50")} />}
                 </div>
-                <div className="flex gap-x-1 items-center">
-                    <p className="text-sm text-center">LR</p>
-                    <input title="Pan" className="w-16" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
+                <div className="relative w-8">
+                    <input title="Volume" className="-rotate-90 w-16" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} />
+                    <p className="absolute left-5.5 top-10.5 text-xs text-center">Vol</p>
+                </div>
+                <div className="relative w-8">
+                    <input title="Pan" className="-rotate-90 w-16" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
+                    <p className="absolute left-5.5 top-10.5 text-xs text-center">Pan</p>
                 </div>
             </div>
         </div>
     )
+}
+
+type SliderProps = {
+
+}
+
+const Slider = ({ }: SliderProps) => {
+
 }

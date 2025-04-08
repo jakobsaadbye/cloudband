@@ -1,15 +1,16 @@
-import { SqliteDB, sqlPlaceholders, sqlPlaceholdersNxM } from "@jakobsaadbye/teilen-sql";
+import { sqlPlaceholdersNxM } from "@jakobsaadbye/teilen-sql";
 import { Context } from "@core/context.ts";
-import { Player } from "@core/player.ts";
 import { Region } from "@core/track.ts";
 import { Entity } from "@core/entity.ts";
+import { Action } from "@core/input.ts";
 
 export const SaveEntireProject = async (ctx: Context) => {
-    await SaveEntities(ctx, [ctx.project]);
     await SaveEntities(ctx, ctx.trackManager.tracks);
     const regions = ctx.trackManager.tracks.reduce((vals, track) => { vals.push(...track.regions); return vals }, [] as Region[]);
     await SaveEntities(ctx, regions);
-    await SavePlayer(ctx.db, ctx.player);
+    await SaveEntity(ctx, ctx.project);
+    await SaveEntity(ctx, ctx.player);
+    await SaveEntity(ctx, ctx.input);
 }
 
 const serialize = (e: Entity) => {
@@ -55,36 +56,47 @@ export const SaveEntity = async (ctx: Context, e: Entity) => {
     return await SaveEntities(ctx, [e]);
 }
 
-export const SavePlayer = async (db: SqliteDB, player: Player) => {
+export const SaveAction = async (ctx: Context, action: Action, index: number) => {
+    const db = ctx.db;
+
+    const dataCopy = [];
+    if (Array.isArray(action.data)) {
+        for (let i = 0; i < action.data.length; i++) {
+            const param = action.data[i];
+            if (typeof param === "object") {
+                // We expect that the data is referring to an entity
+                dataCopy[i] = {
+                    table: param["table"],
+                    id: param["id"],
+                };
+            } else {
+                dataCopy[i] = param;
+            }
+        }
+    } else {
+        console.warn(`Action data needs to be in array form`, action.data);
+    }
+
+
+    const serialized = {
+        position: index,
+        projectId: ctx.project.id,
+        action: action.kind,
+        data: JSON.stringify(dataCopy)
+    };
+
+    const columns = Object.keys(serialized);
+    const values = Object.values(serialized);
+    const updateStr = columns.map(col => `${col} = EXCLUDED.${col}`).join(',\n\t\t\t');
+
     const err = await db.execTrackChanges(`
-        INSERT INTO "players" (
-            id,
-            projectId,
-            volume,
-            tempo,
-            elapsedTime,
-            input_selectedTrack,
-            input_selectedRegion,
-            input_undos
-        ) VALUES (?,?,?,?,?,?,?,?)
+        INSERT INTO "undo_stack" (${columns.join(',')}) 
+        VALUES ${sqlPlaceholdersNxM(columns.length, 1)}
         ON CONFLICT DO UPDATE SET
-            volume = EXCLUDED.volume,
-            tempo = EXCLUDED.tempo,
-            elapsedTime = EXCLUDED.elapsedTime,
-            input_selectedTrack = EXCLUDED.input_selectedTrack,
-            input_selectedRegion = EXCLUDED.input_selectedRegion,
-            input_undos = EXCLUDED.input_undos
-    `, [
-        player.id,
-        player.projectId,
-        player.volume,
-        player.tempo,
-        player.elapsedTime,
-        player.input.selectedTrack ? player.input.selectedTrack.id : null,
-        player.input.selectedRegion ? player.input.selectedRegion.id : null,
-        player.input.undos
-    ], player.projectId);
+            ${updateStr}
+    `, values, ctx.project.id);
     if (err) {
         console.error(err);
     }
+
 }

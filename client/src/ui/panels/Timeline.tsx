@@ -95,7 +95,7 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
   // Track regions
   //
   {
-    const input = state.player.input;
+    const input = state.input;
 
     const trackHeight = 192;
     let trackIndex = 0;
@@ -258,7 +258,7 @@ const CollisionPointRect = (px: number, py: number, x: number, y: number, width:
 const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoom: number) => {
   if (globalKeyboardInputIsDisabled(e)) return;
 
-  const input = state.player.input;
+  const input = state.input;
 
   let handled = false;
   const key = e.key;
@@ -309,9 +309,9 @@ const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoo
 }
 
 
-const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB, state: Context, zoom: number) => {
+const handleMouseInput = async (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB, state: Context, zoom: number) => {
   const player = state.player;
-  const input = state.player.input;
+  const input = state.input;
 
   const scrollX = player.scrollX;
   const scrollY = player.scrollY;
@@ -387,15 +387,15 @@ const handleMouseInput = (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB
 
         if (somethingChanged) {
           if (region.Is(RF.croppingLeft)) {
-            input.Perfomed(state, "region-crop-start", [region, region.start, region.offsetStart, region.originalStart, region.originalOffsetStart]);
+            await input.Performed(state, "region-crop-start", [region, region.start, region.offsetStart, region.originalStart, region.originalOffsetStart]);
             SaveEntities(state, [region]);
           }
           if (region.Is(RF.croppingRight)) {
-            input.Perfomed(state, "region-crop-end", [region, region.end, region.offsetEnd, region.originalEnd, region.originalOffsetEnd]);
+            await input.Performed(state, "region-crop-end", [region, region.end, region.offsetEnd, region.originalEnd, region.originalOffsetEnd]);
             SaveEntities(state, [region]);
           }
           if (region.Is(RF.shifting)) {
-            input.Perfomed(state, "region-shift", [region, region.start, region.end, region.originalStart, region.originalEnd]);
+            await input.Performed(state, "region-shift", [region, region.start, region.end, region.originalStart, region.originalEnd]);
             SaveEntities(state, [region]);
           }
         }

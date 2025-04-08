@@ -99,7 +99,7 @@ export const AutoSync = () => {
 
 
     useEffect(() => {
-        if (ctx.player.input.lastSave === 0) return;
+        if (ctx.input.lastSave === 0) return;
 
         setShowSaveMessage(true);
         const msgId = setTimeout(() => {
@@ -117,7 +117,7 @@ export const AutoSync = () => {
             clearTimeout(msgId);
             clearTimeout(spinId);
         }
-    }, [ctx.player.input.lastSave]);
+    }, [ctx.input.lastSave]);
 
     const syncChanges = () => {
         if (!socket) return;

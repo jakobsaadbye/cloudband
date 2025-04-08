@@ -6,11 +6,13 @@ import { TrackManager } from "@core/trackManager.ts";
 import { Context } from "../core/context.ts";
 import { Track } from "../core/track.ts";
 import { Region } from "../core/track.ts";
-import { SaveEntity, SavePlayer } from "@/db/save.ts";
 import { Entity } from "@core/entity.ts";
-import { Project } from "@core/project.ts";
+import { CreateNewProject, Project } from "@core/project.ts";
+import { Action, PlayerInput } from "@core/input.ts";
 
 const deserialize = (dest: Entity, row: any) => {
+    if (!row) return;
+    
     for (const key of Object.keys(row)) {
         if (typeof dest[key] === "boolean") {
             dest[key] = row[key] ? true : false
@@ -24,10 +26,7 @@ export const LoadWorkspace = async (ctx: Context, db: SqliteDB) => {
     const recentProjects = await db.select<ProjectRow[]>(`SELECT * FROM "projects" ORDER BY lastAccessed DESC`, []);
 
     if (recentProjects.length === 0) {
-        const project = new Project();
-        ctx.project = project;
-        await SaveEntity(ctx, project);
-        await LoadProject(ctx, db, project.id);
+        await CreateNewProject(ctx);
     } else {
         await LoadProject(ctx, db, recentProjects[0].id);
     }
@@ -81,7 +80,7 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
             const region = new Region(row.trackId, row.projectId);
             deserialize(region, row);
             region.data = track.audioData;
-            
+
             track.regions.push(region);
         }
     }
@@ -89,22 +88,57 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
     // Load player
     const player = new Player(trackManager, project.id);
     const playerRow = await db.first<PlayerRow>(`SELECT * FROM "players" WHERE projectId = ?`, [project.id]);
-    if (!playerRow) {
-        console.info(`No player was saved for the project. Creating a new one ...`);
-        await SavePlayer(db, player);
-    } else {
-        player.id = playerRow.id;
-        player.SetVolume(ctx, playerRow.volume);
-        player.tempo = playerRow.tempo;
-        player.elapsedTime = playerRow.elapsedTime;
-        player.input.selectedTrack = null;
-        player.input.selectedRegion = null;
-        player.input.undos = 0 //playerRow.input_undos;
+    deserialize(player, playerRow);
+
+    // Load input + undo stack
+    const input = new PlayerInput(project.id);
+    const inputRow = await db.first<PlayerRow>(`SELECT * FROM "input" WHERE projectId = ?`, [project.id]);
+    deserialize(input, inputRow);
+
+    const undoStackRows = await db.select<any[]>(`SELECT * FROM "undo_stack" WHERE projectId = ? ORDER BY position ASC`, [project.id]);
+
+    const undoStack = [] as Action[];
+    for (const row of undoStackRows) {
+        const actionKind = row.action;
+        const data = JSON.parse(row.data) as any[];
+        const copy = [];
+        for (let i = 0; i < data.length; i++) {
+            const param = data[i];
+            if (typeof param === "object") {
+                // This is an entity identifier with table + id
+                const table = param["table"];
+                const id = param["id"];
+
+                let entity;
+                switch (table) {
+                    case "regions": {
+                        entity = trackManager.GetRegionWithId(id);
+                        break;
+                    }
+                    case "tracks" : {
+                        entity = trackManager.GetTrackWithId(id);
+                        break;
+                    }
+                }
+
+                if (!entity) {
+                    console.warn(`Missing entity '${table}|${id}'`);
+                }
+
+                copy[i] = entity;
+            } else {
+                copy[i] = data[i];
+            }
+        }
+
+        const action: Action = { kind: actionKind, data: copy };
+        undoStack.push(action);
     }
+    input.undoStack = undoStack;
 
-
-    ctx.player = player;
     ctx.project = project;
+    ctx.input = input;
+    ctx.player = player;
     ctx.trackManager = trackManager;
 
     // console.profileEnd("load-project");
