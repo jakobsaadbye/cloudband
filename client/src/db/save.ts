@@ -15,6 +15,10 @@ export const SaveEntireProject = async (ctx: Context) => {
 
 const serialize = (e: Entity) => {
     const serializedFields = e.constructor.prototype.constructor.serializedFields as string[];
+    if (!serializedFields) {
+        console.error(`No serialized fields on entity`, e);
+        return [];
+    }
 
     const fields: [string, any][] = serializedFields
         .map(field => {
@@ -34,6 +38,7 @@ export const SaveEntities = async (ctx: Context, entities: Entity[]) => {
     const documentId = ctx.project.id;
 
     const serialized = entities.map(serialize);
+
     const obj = serialized[0];
 
     const columns = obj.map(([field, _]) => field);

@@ -2,17 +2,17 @@
 import { useEffect, useState } from "react";
 import { useCtx } from "@core/context.ts";
 import { useDB, useSyncer } from "@jakobsaadbye/teilen-sql/react";
-import { Syncer, SyncEvent } from "@jakobsaadbye/teilen-sql";
+import { sqlPlaceholders, Syncer, SyncEvent } from "@jakobsaadbye/teilen-sql";
 import { ReloadProject } from "@/db/load.ts";
 import { SaveEntities } from "@/db/save.ts";
 import { Track } from "@core/track.ts";
+
+const ENABLED = false;
 
 export const AutoSync = () => {
     const ctx = useCtx();
     const db = useDB();
     const syncer = useSyncer();
-
-    const project = ctx.project;
 
     const [showSaveMessage, setShowSaveMessage] = useState(false);
     const [spinSyncIcon, setSpinSyncIcon] = useState(false);
@@ -21,7 +21,9 @@ export const AutoSync = () => {
     useEffect(() => {
         const socket = new WebSocket(`ws://127.0.0.1:3000/start_web_socket?clientId=${db.siteId}`);
 
-        socket.onmessage = (e) => syncer.handleWebSocketMessage(socket, e);
+        if (ENABLED) {
+            socket.onmessage = (e) => syncer.handleWebSocketMessage(socket, e);
+        }
         socket.onopen = onConnection;
 
         setSocket(socket);
@@ -31,25 +33,8 @@ export const AutoSync = () => {
         console.log(`Connected to the server ...`);
 
         // Begin uploading any files that are not yet uploaded
-        const nonUploadedTracks = await db.select<Track[]>(`SELECT * FROM "tracks" WHERE isUploaded = 0`, []);
-
-        for (const track of nonUploadedTracks) {
-            const file = await ctx.fileManager.GetLocalFile(track.projectId, "tracks", track.filename);
-            if (!file) {
-                console.warn(`Missing local file ${track.filename}`);
-                continue;
-            }
-
-            const err = await ctx.fileManager.UploadFile(track.projectId, "tracks", file);
-            if (err) {
-                console.warn(`Failed to upload file '${track.filename}' to the server. `, err);
-                continue;
-            }
-
-            track.isUploaded = true;
-        }
-
-        await SaveEntities(ctx, nonUploadedTracks);
+        await ctx.fileManager.UploadNonUploadedFiles(ctx);
+        
     }
 
     useEffect(() => {
@@ -90,7 +75,9 @@ export const AutoSync = () => {
             await ReloadProject(ctx, db, changes);
         }
 
-        syncer.addEventListener("change", handleIncommingChanges);
+        if (ENABLED) {
+            syncer.addEventListener("change", handleIncommingChanges);
+        }
 
         return () => {
             syncer.removeEventListener(handleIncommingChanges);
@@ -111,7 +98,9 @@ export const AutoSync = () => {
         }, 500);
 
         // Push latest changes to the server
-        syncChanges();
+        if (ENABLED) {
+            syncChanges();
+        }
 
         return () => {
             clearTimeout(msgId);
@@ -124,15 +113,6 @@ export const AutoSync = () => {
         syncer.pushChangesWs(socket);
     }
 
-    return <></>;
-    // (
-    //     <div className="flex items-center">
-    //         <div tabIndex={0} className="flex gap-x-2 p-2 bg-gray-800 hover:bg-gray-950 rounded-lg select-none" onClick={syncChanges}>
-    //             <Sync className={twMerge("fill-gray-200 w-6 h-6", spinSyncIcon && "animate-spin-reverse")} />
-    //             <p className="text-gray-200">Sync</p>
-    //         </div>
-    //         {showSaveMessage && <p className="ml-4">Saved ...</p>}
-    //     </div>
-    // )
+    return;
 }
 

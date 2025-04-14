@@ -20,9 +20,11 @@ function App() {
 
   const db = useDB();
   const [ctx, setCtx] = useState(stateCtx);
-  const [syncer, setSyncer] = useState(new Syncer(db, {
-    pullEndpoint: baseServerUrl + "/pull-changes",
-    pushEndpoint: baseServerUrl + "/push-changes",
+  const [syncer, _] = useState(new Syncer(db, {
+    pushEndpoint: "",
+    pullEndpoint: "",
+    commitPullEndpoint: baseServerUrl + "/pull-commits",
+    commitPushEndpoint: baseServerUrl + "/push-commits",
   }));
 
   useEffect(() => {
@@ -50,10 +52,14 @@ function App() {
         <main className="w-full h-[100vh] overflow-hidden">
 
           {/* Top Section */}
-          <div className="flex justify-between items-center w-full gap-x-4 p-2 h-18 bg-gray-50">
-            <ProjectControls />
-            <PlayControls />
-            <div></div>
+          <div className="flex items-center w-full gap-x-4 p-2 h-18 bg-gray-50">
+            <div className="w-1/3">
+              <ProjectControls />
+            </div>
+            <div className="w-1/3">
+              <PlayControls />
+            </div>
+            <div className="w-1/3"></div>
           </div>
 
           <div className="flex w-full h-full bg-gray-100">

@@ -68,20 +68,22 @@ export const PlayControls = () => {
 
   return (
     <div className="flex justify-center items-center gap-2">
-      <div tabIndex={1} title="Rewind ,">
-        <icon.Rewind className={twMerge(iconStyle)} />
-      </div>
-      <div tabIndex={2} title="Forward .">
-        <icon.Forward className={twMerge(iconStyle)} />
-      </div>
-      <div tabIndex={3} title="Reset ↩" onClick={() => player.ResetPlay(ctx)}>
-        <icon.Stop className={twMerge(iconStyle)} />
-      </div>
-      <div tabIndex={4} title="Play space" onClick={() => player.isPlaying ? player.PausePlay(ctx) : player.BeginPlay(ctx)}>
-        <icon.Play className={twMerge(iconStyle, player.isPlaying ? "bg-green-700 fill-gray-50 rounded-md" : "")} />
-      </div>
-      <div tabIndex={5} title="Record r">
-        <icon.Record className={twMerge(iconStyle, "fill-red-700")} />
+      <div className="hidden lg:flex justify-center items-center gap-2">
+        <div tabIndex={1} title="Rewind ,">
+          <icon.Rewind className={twMerge(iconStyle)} />
+        </div>
+        <div tabIndex={2} title="Forward .">
+          <icon.Forward className={twMerge(iconStyle)} />
+        </div>
+        <div tabIndex={3} title="Reset ↩" onClick={() => player.ResetPlay(ctx)}>
+          <icon.Stop className={twMerge(iconStyle)} />
+        </div>
+        <div tabIndex={4} title="Play space" onClick={() => player.isPlaying ? player.PausePlay(ctx) : player.BeginPlay(ctx)}>
+          <icon.Play className={twMerge(iconStyle, player.isPlaying ? "bg-green-700 fill-gray-50 rounded-md" : "")} />
+        </div>
+        <div tabIndex={5} title="Record r">
+          <icon.Record className={twMerge(iconStyle, "fill-red-700")} />
+        </div>
       </div>
 
       {/* Beating controller */}

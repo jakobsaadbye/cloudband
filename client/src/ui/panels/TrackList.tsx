@@ -138,13 +138,27 @@ const TrackCard = ({ track }: CardProps) => {
                     {(!track.muted && !track.mutedBySolo) && <VolumeUp className={twMerge("w-5 h-5 fill-gray-700")} />}
                     {(track.muted || track.mutedBySolo) && <VolumeOff className={twMerge("w-5 h-5 fill-gray-50")} />}
                 </div>
-                <div className="relative w-8">
-                    <input title="Volume" className="-rotate-90 w-16" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} />
-                    <p className="absolute left-5.5 top-10.5 text-xs text-center">Vol</p>
-                </div>
-                <div className="relative w-8">
-                    <input title="Pan" className="-rotate-90 w-16" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
-                    <p className="absolute left-5.5 top-10.5 text-xs text-center">Pan</p>
+                <div className="ml-2 flex gap-x-4">
+                    <div className=" flex flex-col items-end">
+                        <input style={{ writingMode: 'vertical-lr', direction: 'rtl' }} className="h-16 accent-cyan-300" list="volume-steplist" title="Volume" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} />
+                        <datalist id="volume-steplist">
+                            <option>0.0</option>
+                            <option>0.25</option>
+                            <option>0.50</option>
+                            <option>0.75</option>
+                            <option>1.0</option>
+                        </datalist>
+                        <p className="text-xs text-center">Vol</p>
+                    </div>
+                    <div className="flex flex-col items-center justify-center">
+                        <input title="Pan" className="w-16 accent-cyan-300" list="pan-steplist" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
+                        <datalist id="pan-steplist">
+                            <option>-1</option>
+                            <option>0</option>
+                            <option>1</option>
+                        </datalist>
+                        <p className="text-xs text-center">Pan</p>
+                    </div>
                 </div>
             </div>
         </div>

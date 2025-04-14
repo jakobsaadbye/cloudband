@@ -1,51 +1,36 @@
 import { Context } from "@core/context.ts";
 import { Change, Syncer } from "@jakobsaadbye/teilen-sql";
 import { ReloadProject } from "@/db/load.ts";
-import { SaveEntities } from "@/db/save.ts";
-import { Track } from "@core/track.ts";
 
 export const handlePull = async (ctx: Context, syncer: Syncer) => {
-    const appliedChanges = await syncer.pullChangesHttp();
-    if (!appliedChanges) return;
+    const db = ctx.db;
 
-    console.log(`Pulled ${appliedChanges.length} changes`);
+    const results = await syncer.pullCommits(db, ctx.project.id);
+    if (results) {
+        console.log(results);
 
-    if (appliedChanges.length === 0) return;
+        const resultOnActiveProject = results.find(r => r.documentId === ctx.project.id);
+        if (!resultOnActiveProject) {
+            // Already up to date
+            return;
+        }
 
-    await postProcessAppliedChanges(ctx, appliedChanges);
-
-    await ReloadProject(ctx, ctx.db, appliedChanges);
+        await postProcessAppliedChanges(ctx, resultOnActiveProject.appliedChanges);
+        await ReloadProject(ctx, db, resultOnActiveProject.appliedChanges);
+    }
 }
 
 export const handlePush = async (ctx: Context, syncer: Syncer) => {
+    const db = ctx.db;
 
-    // Uploading any files that are not yet uploaded due to being offline when the track was loaded
-    {
-        const nonUploadedTracks = await ctx.db.select<Track[]>(`SELECT * FROM "tracks" WHERE isUploaded = 0`, []);
-    
-        for (const track of nonUploadedTracks) {
-            const file = await ctx.fileManager.GetLocalFile(track.projectId, "tracks", track.filename);
-            if (!file) {
-                console.warn(`Missing local file ${track.filename}`);
-                continue;
-            }
-    
-            const err = await ctx.fileManager.UploadFile(track.projectId, "tracks", file);
-            if (err) {
-                console.warn(`Failed to upload file '${track.filename}' to the server. `, err);
-                continue;
-            }
-    
-            track.isUploaded = true;
-        }
-        await SaveEntities(ctx, nonUploadedTracks);
+    const result = await syncer.pushCommits(db, ctx.project.id);
+    if (result) {
+        console.log(result);
     }
-
-    
-    await syncer.pushChangesHttp();
 }
 
 const postProcessAppliedChanges = async (ctx: Context, changes: Change[]) => {
+    if (changes.length === 0) return;
 
     // Download any newly inserted tracks
     const trackInserts = [];

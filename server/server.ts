@@ -3,7 +3,7 @@ import { SqliteDB, SqliteDBWrapper, insertCrrTablesStmt } from "@jakobsaadbye/te
 import { tables } from "@common/tables.ts";
 import { Application, Context, Router } from "@oak/oak";
 import { handleWebSocketConnection } from "./websocket.ts";
-import { handlePushChangesHttp, handlePullChangesHttp } from "./http.ts";
+import { handlePushCommits, handlePullCommits } from "./commits.ts";
 import { handleUploadFile, handleDownloadFile } from "./files.ts";
 import { oakCors } from "https://deno.land/x/cors/mod.ts";
 import logger from "https://deno.land/x/oak_logger/mod.ts";
@@ -27,8 +27,8 @@ const router = new Router();
 
 router.get("/download-file", (ctx: Context) => handleDownloadFile(ctx));
 router.post("/upload-file", (ctx: Context) => handleUploadFile(ctx));
-router.get("/pull-changes", (ctx: Context) => handlePullChangesHttp(ctx, wDb));
-router.post("/push-changes", (ctx: Context) => handlePushChangesHttp(ctx, wDb));
+router.put("/pull-commits", (ctx: Context) => handlePullCommits(ctx, wDb));
+router.put("/push-commits", (ctx: Context) => handlePushCommits(ctx, wDb));
 router.get("/start_web_socket", (ctx: Context) => handleWebSocketConnection(ctx, wDb));
 
 app.use(logger.logger);

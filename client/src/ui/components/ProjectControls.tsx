@@ -123,7 +123,7 @@ export const ProjectControls = () => {
 }
 
 type Item = {
-    title: string
+    label: string
     onClick: (e: MouseEvent) => void
     divide?: boolean
     submenu?: Item[]
@@ -144,7 +144,8 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
     const projects = useQuery<ProjectRow[]>(`SELECT * FROM "projects" ORDER BY lastAccessed DESC`, []).data;
 
     const preventShenanigans = (e: Event) => {
-        // Prevents the menu from closing when clicking on one of the items
+        // Prevents the menu from closing when clicking on one of the items as there is an onBlur close on the parent
+        // menu that will trigger if the event propagates ...
         e.preventDefault();
         e.stopPropagation();
     }
@@ -169,7 +170,7 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
 
         return projects.map(project => {
             const item: Item = {
-                title: project.name,
+                label: project.name,
                 onClick: (e) => openProject(project)
             }
             return item;
@@ -184,6 +185,7 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
             setIsSyncing(false);
         }, 500);
     }
+
     const pullChanges = async (e: Event) => {
         preventShenanigans(e);
         setIsSyncing(true);
@@ -194,14 +196,14 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
     }
 
     const items = [
-        { title: "New", onClick: createProject, divide: true },
-        { title: "Open...", onClick: () => { } },
+        { label: "New", onClick: createProject, divide: true },
+        { label: "Open...", onClick: () => { } },
         {
-            title: "Open Recent", onClick: () => { }, submenu: openRecentMenuItems(), divide: true
+            label: "Open Recent", onClick: () => { }, submenu: openRecentMenuItems(), divide: true
         },
-        { title: "Pull", onClick: (e) => pullChanges(e) },
-        { title: "Push", onClick: pushChanges },
-        { title: "Commit...", onClick: () => setShowCommitHud(true) }
+        { label: "Pull", onClick: pullChanges },
+        { label: "Push", onClick: pushChanges },
+        { label: "Commit...", onClick: () => setShowCommitHud(true) }
     ] as Item[];
 
     if (!opened) return;
@@ -227,7 +229,7 @@ const DropdownList = ({ items, isSubmenu }: { items: Item[], isSubmenu?: boolean
 
                             {item.submenu && <DropdownList items={item.submenu} isSubmenu />}
 
-                            <p className={twMerge("text-sm text-gray-700")}>{item.title}</p>
+                            <p className={twMerge("text-sm text-gray-700")}>{item.label}</p>
                             {item.submenu && <Play className="w-4 h-4 fill-gray-500" />}
                         </div>
                         {item.divide && <p className="my-1 border-b-1 border-gray-200"></p>}
