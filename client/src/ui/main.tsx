@@ -15,9 +15,11 @@ await db.exec(tables, []);
 await db.upgradeTableToCrr("projects");
 await db.upgradeTableToCrr("players");
 await db.upgradeTableToCrr("tracks");
-await db.upgradeTableToCrr("regions");
-await db.upgradeTableToCrr("undo_stack");
+await db.upgradeTableToCrr("regions", {
+  manualConflictColumns: ["start", "end"]
+});
 await db.upgradeTableToCrr("input");
+await db.upgradeTableToCrr("undo_stack");
 await db.finalize();
 
 createRoot(document.getElementById('root') as HTMLElement).render(

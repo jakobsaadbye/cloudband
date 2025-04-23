@@ -1,23 +1,23 @@
-import { Context } from "@core/context.ts";
 import { Change, Syncer } from "@jakobsaadbye/teilen-sql";
+import { Context } from "@core/context.ts";
 import { ReloadProject } from "@/db/load.ts";
 
 export const handlePull = async (ctx: Context, syncer: Syncer) => {
     const db = ctx.db;
 
     const results = await syncer.pullCommits(db, ctx.project.id);
-    if (results) {
-        console.log(results);
-
-        const resultOnActiveProject = results.find(r => r.documentId === ctx.project.id);
-        if (!resultOnActiveProject) {
-            // Already up to date
-            return;
-        }
-
-        await postProcessAppliedChanges(ctx, resultOnActiveProject.appliedChanges);
-        await ReloadProject(ctx, db, resultOnActiveProject.appliedChanges);
+    if (results.length === 0) return; 
+    
+    const pull = results.find(r => r.documentId === ctx.project.id);
+    if (!pull) {
+        // Already up to date
+        return;
     }
+
+    // Any manual conflicts are added to the database and loaded after ReloadProject
+
+    await postProcessAppliedChanges(ctx, pull.appliedChanges);
+    await ReloadProject(ctx, db, pull.appliedChanges);
 }
 
 export const handlePush = async (ctx: Context, syncer: Syncer) => {

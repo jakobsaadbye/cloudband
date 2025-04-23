@@ -11,6 +11,7 @@ import { Hud } from "@ui/components/Hud.tsx";
 import { CommitHud } from "./CommitHud.tsx";
 import { CreateNewProject, Project } from "@core/project.ts";
 import { ProjectRow } from "@/db/types.ts";
+import { DropdownList, DropdownItem } from "@ui/components/DropdownList.tsx";
 
 export const ProjectControls = () => {
 
@@ -83,7 +84,7 @@ export const ProjectControls = () => {
         ctx.S({...ctx});
     }
 
-    const { Sync, Record, PeopleGroup } = useIcons();
+    const { PeopleGroup } = useIcons();
 
     return (
         <div className="ml-2 flex gap-x-2 items-center select-none">
@@ -111,8 +112,6 @@ export const ProjectControls = () => {
                         <PeopleGroup className="w-5 h-5 fill-gray-700" />
                         <div className={twMerge("bg-gray-500 rounded-full w-2 h-2", project.livemodeEnabled && "bg-red-600")} />
                     </div>
-
-                    {isSyncing && <Sync className="ml-4 fill-gray-600 w-5 h-5 animate-spin-reverse" />}
                 </div>
             </div>
 
@@ -120,13 +119,6 @@ export const ProjectControls = () => {
 
         </div>
     )
-}
-
-type Item = {
-    label: string
-    onClick: (e: MouseEvent) => void
-    divide?: boolean
-    submenu?: Item[]
 }
 
 type ProjectDropdownProps = {
@@ -169,7 +161,7 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
         if (!projects) return [];
 
         return projects.map(project => {
-            const item: Item = {
+            const item: DropdownItem = {
                 label: project.name,
                 onClick: (e) => openProject(project)
             }
@@ -177,34 +169,13 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
         });
     }
 
-    const pushChanges = async (e: Event) => {
-        preventShenanigans(e);
-        setIsSyncing(true);
-        await handlePush(ctx, syncer);
-        setTimeout(() => {
-            setIsSyncing(false);
-        }, 500);
-    }
-
-    const pullChanges = async (e: Event) => {
-        preventShenanigans(e);
-        setIsSyncing(true);
-        await handlePull(ctx, syncer);
-        setTimeout(() => {
-            setIsSyncing(false);
-        }, 500);
-    }
-
     const items = [
         { label: "New", onClick: createProject, divide: true },
         { label: "Open...", onClick: () => { } },
         {
-            label: "Open Recent", onClick: () => { }, submenu: openRecentMenuItems(), divide: true
+            label: "Open Recent", onClick: () => { }, submenu: openRecentMenuItems()
         },
-        { label: "Pull", onClick: pullChanges },
-        { label: "Push", onClick: pushChanges },
-        { label: "Commit...", onClick: () => setShowCommitHud(true) }
-    ] as Item[];
+    ] as DropdownItem[];
 
     if (!opened) return;
     return <>
@@ -212,30 +183,4 @@ const ProjectDropdown = ({ opened, close, setIsSyncing, setShowCommitHud }: Proj
     </>
 }
 
-const DropdownList = ({ items, isSubmenu }: { items: Item[], isSubmenu?: boolean }) => {
 
-    const { Play } = useIcons();
-
-    return (
-        <div
-            autoFocus
-            tabIndex={0}
-            className={twMerge("absolute z-50 p-1 flex flex-col w-60 bg-white shadow-sm shadow-gray-400 rounded-r-sm rounded-b-sm focus:outline-none", isSubmenu && "-top-0 left-full hidden group-hover:block")}
-        >
-            {items.map((item, i) => {
-                return (
-                    <div key={i} className="group">
-                        <div tabIndex={1} onMouseDown={item.onClick} className="relative flex items-center justify-between p-1 hover:bg-gray-200 rounded-sm">
-
-                            {item.submenu && <DropdownList items={item.submenu} isSubmenu />}
-
-                            <p className={twMerge("text-sm text-gray-700")}>{item.label}</p>
-                            {item.submenu && <Play className="w-4 h-4 fill-gray-500" />}
-                        </div>
-                        {item.divide && <p className="my-1 border-b-1 border-gray-200"></p>}
-                    </div>
-                )
-            })}
-        </div>
-    )
-}

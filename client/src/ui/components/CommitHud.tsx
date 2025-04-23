@@ -19,7 +19,7 @@ export const CommitHud = ({ isOpen, close }: Props) => {
     const ctx = useCtx();
 
     const [name, setName] = useState("");
-    const textboxRows = name.split('\n').length
+    const textboxRows = name.split('\n').length;
 
     const changeCount = useQuery((db, projectId: string) => db.getUncommittedChangeCount(projectId), [ctx.project.id], { tableDependencies: ["crr_changes"] }).data ?? 0;
 

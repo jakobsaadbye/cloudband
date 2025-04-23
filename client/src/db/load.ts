@@ -1,4 +1,4 @@
-import { Change, SqliteDB } from "@jakobsaadbye/teilen-sql";
+import { Change, RowConflict, SqliteDB } from "@jakobsaadbye/teilen-sql";
 import { ProjectRow, PlayerRow, RegionRow, TrackRow } from "./types.ts";
 import { Player } from "../core/player.ts";
 import { TrackKind } from "../core/track.ts";
@@ -72,6 +72,21 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
             }
         }
     }
+
+    // Load region conflicts
+    const conflicts = await db.getConflicts<RegionRow>("regions", project.id);
+    for (const conflict of conflicts) {
+        // Add any conflicts of others to the track
+        const row = conflict.their;
+        const theirRegion = new Region(row.trackId, row.projectId)
+        deserialize(theirRegion, row)
+        
+        const track = trackManager.GetTrackWithId(theirRegion.trackId);
+        if (!track) continue
+
+        track.conflictingRegions.push(theirRegion);
+    }
+
 
     // Load regions
     for (const track of trackManager.tracks) {

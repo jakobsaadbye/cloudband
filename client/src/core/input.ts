@@ -12,6 +12,8 @@ export type ActionKind =
     | "region-crop-end"
     | "region-shift"
     | "region-split"
+    | "region-accept-their"
+    | "region-decline-their"
     | "track-delete"
 
 export type Action = {
@@ -28,7 +30,7 @@ export const getActionName = (action: Action) => {
         case "region-shift": return "Region shift";
         case "region-split": return "Region split";
         case "track-delete": return "Track delete";
-        default: return "???"
+        default: return action.kind;
     }
 }
 
@@ -87,15 +89,10 @@ class PlayerInput implements Entity {
 
         const index = this.undoStack.length - this.undos;
         const lastAction = this.undoStack[index];
-        switch (lastAction.kind) {
-            case "region-delete": { await undo.RegionDelete(ctx, lastAction); break; }
-            case "region-paste": { await undo.RegionPaste(ctx, lastAction); break; }
-            case "region-crop-start": { await undo.RegionCropStart(ctx, lastAction); break; }
-            case "region-crop-end": { await undo.RegionCropEnd(ctx, lastAction); break; }
-            case "region-shift": { await undo.RegionShift(ctx, lastAction); break; }
-            case "region-split": { await undo.RegionSplit(ctx, lastAction); break; }
-            case "track-delete": { await undo.TrackDelete(ctx, lastAction); break; }
-        }
+        const undoFn = undo[lastAction.kind];
+
+        if (!undoFn) return;
+        await undoFn(ctx, lastAction);
 
         await SaveEntity(ctx, this);
     }
@@ -109,15 +106,10 @@ class PlayerInput implements Entity {
 
         const index = this.undoStack.length - this.undos - 1;
         const lastAction = this.undoStack[index];
-        switch (lastAction.kind) {
-            case "region-delete": { await redo.RegionDelete(ctx, lastAction); break; }
-            case "region-paste": { await redo.RegionPaste(ctx, lastAction); break; }
-            case "region-crop-start": { await redo.RegionCropStart(ctx, lastAction); break; }
-            case "region-crop-end": { await redo.RegionCropEnd(ctx, lastAction); break; }
-            case "region-shift": { await redo.RegionShift(ctx, lastAction); break; }
-            case "region-split": { await redo.RegionSplit(ctx, lastAction); break; }
-            case "track-delete": { await redo.TrackDelete(ctx, lastAction); break; }
-        }
+        const redoFn = redo[lastAction.kind];
+
+        if (!redoFn) return;
+        await redoFn(ctx, lastAction);
 
         await SaveEntity(ctx, this);
     }
@@ -137,6 +129,39 @@ class PlayerInput implements Entity {
         await SaveAction(ctx, action, this.undoStack.length - 1);
 
         ctx.S({ ...ctx });
+    }
+
+    async AcceptRegionChange(ctx: Context, theirRegion: Region) {
+        const db = ctx.db;
+        await db.resolveConflict("regions", theirRegion.id, theirRegion.projectId, "their");
+
+        // Copy the data on their region onto our region
+        const ourRegion = ctx.trackManager.GetRegionWithId(theirRegion.id);
+        if (!ourRegion) {
+            console.error(`Region was not found`);
+            return;
+        }
+        ourRegion.start = theirRegion.start;
+        ourRegion.end = theirRegion.end;
+        ourRegion.offsetStart = theirRegion.offsetStart;
+        ourRegion.offsetEnd = theirRegion.offsetEnd;
+
+        await SaveEntity(ctx, ourRegion);
+
+        // Remove conflicting region from the track
+        const track = ctx.trackManager.GetTrackWithId(theirRegion.trackId);
+        if (!track) return;
+        track.conflictingRegions = track.conflictingRegions.filter(x => x.id !== theirRegion.id);
+        this.Performed(ctx, "region-accept-their", [theirRegion]);
+    }
+
+    async DeclineRegionChange(ctx: Context, region: Region) {
+        const db = ctx.db;
+        await db.resolveConflict("regions", region.id, region.projectId, "our");
+        const track = ctx.trackManager.GetTrackWithId(region.trackId);
+        if (!track) return;
+        track.conflictingRegions = track.conflictingRegions.filter(x => x.id !== region.id);
+        this.Performed(ctx, "region-decline-their", [region]);
     }
 
     CopyRegion(ctx: Context) {

@@ -18,6 +18,7 @@ import ArrowRight from "../assets/icons/arrow_right.svg?react"
 import PeopleGroup from "../assets/icons/people_group.svg?react"
 import Headset from "../assets/icons/headset.svg?react"
 import HeadsetOff from "../assets/icons/headset_off.svg?react"
+import TripleDots from "../assets/icons/triple_dots.svg?react"
 
 export const useIcons = () => {
     return {
@@ -41,5 +42,6 @@ export const useIcons = () => {
         PeopleGroup,
         Headset,
         HeadsetOff,
+        TripleDots,
     }
 }

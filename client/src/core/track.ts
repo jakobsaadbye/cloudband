@@ -1,6 +1,7 @@
 import { audioContext, Context } from "./context.ts";
 import { Entity } from "@core/entity.ts";
 import { generateId } from "./id.ts";
+import { RegionRow } from "@/db/types.ts";
 
 type TrackKind = 'audio' | 'midi'
 
@@ -36,6 +37,7 @@ class Track implements Entity {
     isUploaded: boolean
 
     regions: Region[]
+    conflictingRegions: Region[]
 
     deleted: boolean
     muted: boolean
@@ -61,6 +63,8 @@ class Track implements Entity {
         this.isUploaded = false;
 
         this.regions = [];
+
+        this.conflictingRegions = [];
 
         this.deleted = false;
         this.muted = false;
@@ -88,7 +92,7 @@ class Track implements Entity {
     set volume(value: number) {
         this.volumer.gain.value = value;
     }
-    
+
     get pan() {
         return this.panner.pan.value;
     }
@@ -138,6 +142,13 @@ const RF = { // Region_Flags
     held: 4 | 8 | 16,
 }
 
+export type Rectangle = { 
+    x: number, 
+    y: number, 
+    width: number, 
+    height: number 
+}
+
 class Region implements Entity {
     table = "regions";
     static serializedFields = [
@@ -167,14 +178,17 @@ class Region implements Entity {
     flags: number // of Region_Flags
     deleted: boolean
 
+    acceptHitbox: Rectangle
+    declineHitbox: Rectangle
+    acceptHovered: boolean
+    declineHovered: boolean
+
     x: number
     y: number
     width: number
     height: number
-
     dragX: number
     dragY: number
-
     originalOffsetStart: number
     originalOffsetEnd: number
     originalStart: number
@@ -195,6 +209,11 @@ class Region implements Entity {
 
         this.flags = RF.none;
         this.deleted = false;
+
+        this.acceptHitbox = { x: 0, y: 0, width: 0, height: 0 };
+        this.declineHitbox = { x: 0, y: 0, width: 0, height: 0 };
+        this.acceptHovered = false;
+        this.declineHovered = false;
 
         // Ui stuff
         this.x = 0;
@@ -267,11 +286,11 @@ class Region implements Entity {
 }
 
 export {
-  Track,
-  Region,
-  RF,
+    Track,
+    Region,
+    RF,
 };
 
-export type { 
-    TrackKind 
+export type {
+    TrackKind
 };

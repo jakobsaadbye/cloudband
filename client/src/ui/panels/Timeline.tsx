@@ -1,7 +1,7 @@
 // @deno-types="npm:@types/react@19"
 import { useEffect, useState, useRef } from "react";
 import { Context, useCtx } from "@core/context.ts";
-import { RF } from "@core/track.ts";
+import { Rectangle, RF } from "@core/track.ts";
 import { useDB } from "@jakobsaadbye/teilen-sql/react";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 import { SaveEntities } from "@/db/save.ts";
@@ -19,26 +19,34 @@ const DrawLine = (ctx: Canvas2D, x0: number, y0: number, x1: number, y1: number,
   ctx.stroke();
 }
 
-const DrawRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, style = "#000000", roundness = [0, 0, 0, 0]) => {
+const DrawRectangleRect = (ctx: Canvas2D, rect: Rectangle, style = "#000000", roundness = [0, 0, 0, 0], alpha = 1.0) => {
+  DrawRectangle(ctx, rect.x, rect.y, rect.width, rect.height, style, roundness, alpha);
+}
+
+const DrawRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, style = "#000000", roundness = [0, 0, 0, 0], alpha = 1.0) => {
+  ctx.globalAlpha = alpha;
   ctx.fillStyle = style;
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, roundness);
   ctx.fill();
+  ctx.globalAlpha = 1.0;
 }
 
-const DrawStrokedRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, strokeStyle = "#000000", fillStyle = "#000000", thickness = 1.0, roundness = [0, 0, 0, 0]) => {
+const DrawStrokedRectangle = (ctx: Canvas2D, x: number, y: number, width: number, height: number, strokeStyle = "#000000", fillStyle = "#000000", thickness = 1.0, roundness = [0, 0, 0, 0], alpha = 1.0) => {
   x += thickness / 2;
   y += thickness / 2;
   width -= thickness / 2;
   height -= thickness / 2;
 
-  DrawRectangle(ctx, x, y, width, height, fillStyle, roundness);
+  DrawRectangle(ctx, x, y, width, height, fillStyle, roundness, alpha);
 
+  ctx.globalAlpha = alpha;
   ctx.lineWidth = thickness;
   ctx.strokeStyle = strokeStyle;
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, roundness);
   ctx.stroke();
+  ctx.globalAlpha = 1.0;
 }
 
 const REGION_COLORS = [
@@ -99,6 +107,7 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
 
     const trackHeight = 192;
     let trackIndex = 0;
+    let skipY = 0; // pixels to skip from conflicting regions
     for (let i = 0; i < state.trackManager.tracks.length; i++) {
       const track = state.trackManager.tracks[i];
       if (track.deleted) continue;
@@ -111,7 +120,7 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
         const gapY = 6;
 
         const x = region.start / secondsPerBar * barWidth;
-        let y = trackIndex * trackHeight + TRACK_START;
+        let y = trackIndex * trackHeight + TRACK_START + skipY;
         const width = region.duration / secondsPerBar * barWidth;
         const height = trackHeight;
 
@@ -169,6 +178,76 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
         if (region.Is(RF.hoveredEnds)) {
           canvas.style.cursor = "col-resize";
         }
+      }
+
+      // Conflicting regions
+      for (const region of track.conflictingRegions) {
+        const secondsPerBar = 240.0 / state.player.tempo;
+
+        const gapY = 2;
+
+        const trackConflictHeight = 70;
+
+        const x = region.start / secondsPerBar * barWidth;
+        let y = (trackIndex + 1) * trackHeight + TRACK_START;
+        const width = region.duration / secondsPerBar * barWidth;
+        const height = trackConflictHeight;
+
+        y += gapY * (trackIndex + 1);
+
+        const bgColor = REGION_COLORS[i];
+        const outline = "#303030";
+        DrawStrokedRectangle(ctx, x, y, width, height, outline, bgColor, 2, [8], 0.60);
+
+        region.x = x;
+        region.y = y;
+        region.width = width;
+        region.height = height;
+
+        // Accept / decline text
+        {
+          const fontSize = 28;
+          ctx.font = fontSize + "px serif";
+
+
+          const colorHovered = "#fefefe";
+          // const colorNotHovered = "#707070";
+          const colorNotHovered = "#404040";
+          let acceptFillStyle = colorNotHovered;
+          let declineFillStyle = colorNotHovered;
+          if (region.acceptHovered) {
+            acceptFillStyle = colorHovered;
+          }
+          if (region.declineHovered) {
+            declineFillStyle = colorHovered;
+          }
+
+          const aX = x + 10;
+          const dX = x + 100;
+          const aY = y + (height / 2.0) + (fontSize / 3.0);
+
+          ctx.fillStyle = acceptFillStyle;
+          ctx.fillText("Accept", aX, aY);
+          ctx.fillStyle = declineFillStyle;
+          ctx.fillText("Decline", dX, aY);
+
+          const pad = 4;
+          region.acceptHitbox.x = aX - pad;
+          region.acceptHitbox.y = aY - fontSize;
+          region.acceptHitbox.width = 80 + 2 * pad;
+          region.acceptHitbox.height = fontSize + 2 * pad;
+          region.declineHitbox.x = dX - pad;
+          region.declineHitbox.y = aY - fontSize;
+          region.declineHitbox.width = 90 + 2 * pad;
+          region.declineHitbox.height = fontSize + 2 * pad;
+
+          const abox = region.acceptHitbox;
+          const dbox = region.declineHitbox;
+          // DrawRectangleRect(ctx, abox, "#f20af2", [0], 0.2);
+          // DrawRectangleRect(ctx, dbox, "#f20af2", [0], 0.2);
+        }
+
+        skipY += trackConflictHeight;
       }
 
       trackIndex += 1;
@@ -309,7 +388,7 @@ const handleKeyboardInput = (e: KeyboardEvent, db: SqliteDB, state: Context, zoo
 }
 
 
-const handleMouseInput = async (canvas: HTMLCanvasElement, e: MouseEvent, db: SqliteDB, state: Context, zoom: number) => {
+const handleMouseInput = async (canvas: HTMLCanvasElement, ctx: Canvas2D, e: MouseEvent, db: SqliteDB, state: Context, zoom: number) => {
   const player = state.player;
   const input = state.input;
 
@@ -335,6 +414,7 @@ const handleMouseInput = async (canvas: HTMLCanvasElement, e: MouseEvent, db: Sq
   for (let i = 0; i < tracks.length; i++) {
     const track = tracks[i];
 
+    // Normal region controls
     for (const region of track.regions) {
       if (region.deleted) continue;
 
@@ -473,6 +553,31 @@ const handleMouseInput = async (canvas: HTMLCanvasElement, e: MouseEvent, db: Sq
         }
       }
     }
+
+    // Conflict region controls
+    for (const region of track.conflictingRegions) {
+
+      // Check if accept or decline is hovered and or clicked
+      const abox = region.acceptHitbox;
+      const dbox = region.declineHitbox;
+
+      if (CollisionPointRect(mouseX, mouseY, abox.x, abox.y, abox.width, abox.height)) {
+        region.acceptHovered = true;
+        if (e.type === "mousedown") {
+          input.AcceptRegionChange(state, region);
+        }
+      } else {
+        region.acceptHovered = false;
+      }
+      if (CollisionPointRect(mouseX, mouseY, dbox.x, dbox.y, dbox.width, dbox.height)) {
+        region.declineHovered = true;
+        if (e.type === "mousedown") {
+          input.DeclineRegionChange(state, region);
+        }
+      } else {
+        region.declineHovered = false;
+      }
+    }
   }
 
   //
@@ -582,14 +687,27 @@ export const Timeline = () => {
   }, []);
 
   useEffect(() => {
+    const canvas: HTMLCanvasElement | null = document.getElementById("track-canvas");
+    if (!canvas) return;
+    if (!canvasRef.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      const dpi = window.devicePixelRatio;
+      canvas.setAttribute("height", `${canvas.clientHeight * dpi}`);
+      canvas.setAttribute("width", `${canvas.clientWidth * dpi}`);
+    });
+    resizeObserver.observe(canvasRef.current);
+    return () => resizeObserver.disconnect(); // clean up 
+  }, []);
+
+  useEffect(() => {
     if (!canvasRef.current || !canvasCtx) return;
+
+    console.log("Reran");
 
     const canvas = canvasRef.current;
 
-    const targetFps = 90;
-
     let frameId = 0;
-
     const renderLoop = () => {
 
       // Scroll to center of playhead?
@@ -614,7 +732,7 @@ export const Timeline = () => {
     return () => {
       cancelAnimationFrame(frameId);
     }
-  }, [canvasCtx, zoom, state, viewport]);
+  }, [canvasCtx, zoom, state, viewport, canvasRef.current?.clientWidth, canvasRef.current?.clientHeight]);
 
   useEffect(() => {
     if (!canvasRef.current || !canvasCtx) return;
@@ -641,7 +759,7 @@ export const Timeline = () => {
     if (!canvasRef.current || !canvasCtx) return;
     const canvas = canvasRef.current;
 
-    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(canvas, e, db, state, zoom);
+    const handleMouseInputCallback = (e: MouseEvent) => handleMouseInput(canvas, canvasCtx, e, db, state, zoom);
     const handleKeyboardInputCallback = (e: KeyboardEvent) => handleKeyboardInput(e, db, state, zoom);
 
     document.addEventListener("keydown", handleKeyboardInputCallback);

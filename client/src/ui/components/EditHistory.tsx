@@ -27,7 +27,7 @@ export const EditHistory = () => {
 
     return (
         <CollapsablePanel label="Edits" icon={<IconEdit className="fill-gray-500 w-4 h-4" />}>
-            <div ref={listElement} className="flex h-64 flex-col overflow-scroll select-none">
+            <div ref={listElement} className="flex flex-col select-none">
                 {input.undoStack.map((action, i) => {
                     const undos = input.undos;
                     const headIndex = input.undoStack.length - undos - 1;

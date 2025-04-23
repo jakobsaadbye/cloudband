@@ -12,7 +12,8 @@ import { SyncContext, useDB } from "@jakobsaadbye/teilen-sql/react";
 import { ProjectControls } from "@ui/components/ProjectControls.tsx";
 import { AutoSync } from "./components/AutoSync.tsx";
 import { Syncer } from "@jakobsaadbye/teilen-sql";
-import { CommitHistory } from "./components/CommitHistory.tsx";
+import { CommitHistory } from "./components/PrimarySidebar/Sidebars/VersionControl/CommitHistory.tsx";
+import { PrimarySidebar } from "./components/PrimarySidebar/PrimarySidebar.tsx";
 
 const baseServerUrl = "http://127.0.0.1:3000";
 
@@ -63,6 +64,7 @@ function App() {
           </div>
 
           <div className="flex w-full h-full bg-gray-100">
+            <PrimarySidebar />
             <TrackList />
 
             <div className="flex flex-col w-full">
@@ -75,7 +77,6 @@ function App() {
             <div className="w-100 h-full bg-gray-100 border-l-1 border-l-black/40">
               <div className="flex flex-col">
                 <EditHistory />
-                <CommitHistory />
               </div>
             </div>
           </div>

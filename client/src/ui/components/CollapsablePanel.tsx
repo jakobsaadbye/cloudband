@@ -8,29 +8,57 @@ type Props = {
     icon?: React.ReactNode
     children: React.ReactNode
     className?: string
+    headerClassName?: string
     reference?: Ref<HTMLDivElement>
 }
-export const CollapsablePanel = ({ label, icon, children, className, reference }: Props) => {
+export const CollapsablePanel = ({ label, icon, children, className, headerClassName, reference }: Props) => {
     const [isOpen, setIsOpen] = useState(true);
+
+    const [height, setHeight] = useState<string | number>("0px");
+    const contentRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (contentRef.current) {
+            if (isOpen) {
+                const scrollHeight = contentRef.current.scrollHeight;
+                setHeight(scrollHeight + "px");
+            } else {
+                setHeight("0px");
+            }
+        }
+    }, [isOpen]);
 
     const { ArrowRight, ArrowDown } = useIcons();
 
     return (
-        <section className="overflow-hidden">
-            <div className="flex items-center justify-between p-1 bg-gray-300 select-none hover:bg-gray-250" onClick={() => setIsOpen(!isOpen)}>
-                <div className="flex gap-x-1">
+        <section 
+            className={twMerge("bg-gray-200 overflow-scroll border-b-1 border-gray-400")}
+            style={{
+                flexGrow: isOpen ? 1 : 0,
+                flexShrink: 1,
+                flexBasis: isOpen ? "50%" : "0%",
+            }}
+        >
+            <div className={twMerge("flex items-center justify-between p-1 bg-gray-300 select-none hover:bg-gray-250", headerClassName)} onClick={() => setIsOpen(!isOpen)}>
+                <div className="flex">
                     {icon && (
                         <div className="flex justify-center items-center">
                             {icon}
                         </div>
                     )}
-                    <p className="font-semibold text-gray-600 text-sm">{label}</p>
+                    <p className="pl-1 font-semibold text-gray-600 text-sm">{label}</p>
                 </div>
-                {isOpen && <ArrowDown className="fill-gray-500 w-6 h-6" />}
-                {!isOpen && <ArrowRight />}
+                {isOpen ? <ArrowDown className="fill-gray-500 w-6 h-6" /> : <ArrowRight />}
             </div>
-            <div className={twMerge("flex w-full ease-linear duration-100 transition-all max-h-0", isOpen && "max-h-100")}>
-                <div ref={reference} className={twMerge("flex w-full flex-col m-0 h-64 bg-gray-200 border-b-1 border-gray-400 select-none overflow-scroll", className)}>
+            <div 
+                style={{
+                    maxHeight: isOpen ? "300px" : "0px",
+                    transition: "max-height 0.1s linear",
+                    overflow: "scroll",
+                }}
+                className="w-full" 
+            >
+                <div ref={contentRef} className={twMerge("flex w-full flex-col m-0 bg-gray-200 select-none overflow-scroll", className)}>
                     {children}
                 </div>
             </div>

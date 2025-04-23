@@ -16,7 +16,9 @@ await wDb.exec(tables, []);
 await wDb.upgradeTableToCrr("projects");
 await wDb.upgradeTableToCrr("players");
 await wDb.upgradeTableToCrr("tracks");
-await wDb.upgradeTableToCrr("regions");
+await wDb.upgradeTableToCrr("regions", {
+    manualConflictColumns: ["start", "end"]
+});
 await wDb.finalize();
 
 

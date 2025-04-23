@@ -85,7 +85,7 @@ export const TrackList = () => {
     }
 
     return (
-        <div className={twMerge("min-w-[300px] flex flex-col h-full border-2 border-black/40", fileBeingDropped && "border-2 border-blue-500")} onDrop={handleDrop} onDragOver={handleDragOver}>
+        <div className={twMerge("min-w-[300px] flex flex-col h-full border-1 border-gray-400", fileBeingDropped && "border-2 border-blue-500")} onDrop={handleDrop} onDragOver={handleDragOver}>
             <div className="flex items-center h-[38px] w-full p-2 bg-black/40">
                 <p className="px-6 py-0.5 flex justify-center text-center w-8 rounded-lg font-semibold select-none bg-blue-500 text-gray-100 hover:bg-blue-600" onClick={openFilePicker}>+</p>
             </div>
@@ -128,40 +128,45 @@ const TrackCard = ({ track }: CardProps) => {
     }
 
     return (
-        <div className={twMerge("flex items-center w-full h-[98px] p-2 bg-gray-200 border-b-1 border-gray-400", isSelected && "bg-gray-300")} onMouseDown={() => input.SelectTrack(ctx, track)}>
-            <p className="text-sm select-none w-1/3">{track.file.name}</p>
-            <div className="flex gap-x-0 items-center">
-                <div className={twMerge("p-1 rounded-sm", track.soloed && "bg-amber-500")} title="Solo this track" onMouseDown={toggleSolo}>
-                    <Headset className={twMerge("w-4.5 h-4.5 fill-gray-700", track.soloed && "fill-gray-50")} />
-                </div>
-                <div className={twMerge("p-1 rounded-sm flex gap-x-1", (track.muted || track.mutedBySolo) && "bg-gray-500")} title="Mute/Unmute this track" onMouseDown={toggleMute}>
-                    {(!track.muted && !track.mutedBySolo) && <VolumeUp className={twMerge("w-5 h-5 fill-gray-700")} />}
-                    {(track.muted || track.mutedBySolo) && <VolumeOff className={twMerge("w-5 h-5 fill-gray-50")} />}
-                </div>
-                <div className="ml-2 flex gap-x-4">
-                    <div className=" flex flex-col items-end">
-                        <input style={{ writingMode: 'vertical-lr', direction: 'rtl' }} className="h-16 accent-cyan-300" list="volume-steplist" title="Volume" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} />
-                        <datalist id="volume-steplist">
-                            <option>0.0</option>
-                            <option>0.25</option>
-                            <option>0.50</option>
-                            <option>0.75</option>
-                            <option>1.0</option>
-                        </datalist>
-                        <p className="text-xs text-center">Vol</p>
+        <>
+            <div className={twMerge("flex items-center w-full h-[98px] p-2 bg-gray-200 border-b-1 border-gray-400", isSelected && "bg-gray-300")} onMouseDown={() => input.SelectTrack(ctx, track)}>
+                <p className="text-sm select-none w-1/3">{track.file.name}</p>
+                <div className="flex gap-x-0 items-center">
+                    <div className={twMerge("p-1 rounded-sm", track.soloed && "bg-amber-500")} title="Solo this track" onMouseDown={toggleSolo}>
+                        <Headset className={twMerge("w-4.5 h-4.5 fill-gray-700", track.soloed && "fill-gray-50")} />
                     </div>
-                    <div className="flex flex-col items-center justify-center">
-                        <input title="Pan" className="w-16 accent-cyan-300" list="pan-steplist" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
-                        <datalist id="pan-steplist">
-                            <option>-1</option>
-                            <option>0</option>
-                            <option>1</option>
-                        </datalist>
-                        <p className="text-xs text-center">Pan</p>
+                    <div className={twMerge("p-1 rounded-sm flex gap-x-1", (track.muted || track.mutedBySolo) && "bg-gray-500")} title="Mute/Unmute this track" onMouseDown={toggleMute}>
+                        {(!track.muted && !track.mutedBySolo) && <VolumeUp className={twMerge("w-5 h-5 fill-gray-700")} />}
+                        {(track.muted || track.mutedBySolo) && <VolumeOff className={twMerge("w-5 h-5 fill-gray-50")} />}
+                    </div>
+                    <div className="ml-2 flex gap-x-4">
+                        <div className=" flex flex-col items-end">
+                            <input style={{ writingMode: 'vertical-lr', direction: 'rtl' }} className="h-16 accent-cyan-300" list="volume-steplist" title="Volume" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} />
+                            <datalist id="volume-steplist">
+                                <option>0.0</option>
+                                <option>0.25</option>
+                                <option>0.50</option>
+                                <option>0.75</option>
+                                <option>1.0</option>
+                            </datalist>
+                            <p className="text-xs text-center">Vol</p>
+                        </div>
+                        <div className="flex flex-col items-center justify-center">
+                            <input title="Pan" className="w-16 accent-cyan-300" list="pan-steplist" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
+                            <datalist id="pan-steplist">
+                                <option>-1</option>
+                                <option>0</option>
+                                <option>1</option>
+                            </datalist>
+                            <p className="text-xs text-center">Pan</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+            {track.conflictingRegions.length > 0 && (
+                <div className="h-8.5 w-full bg-yellow-200 border-b-1 border-gray-400"></div>
+            )}
+        </>
     )
 }
 
