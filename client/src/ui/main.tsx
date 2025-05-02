@@ -12,22 +12,34 @@ import { tables } from "@common/tables.ts";
 
 const db = await createDb("cloudband.db");
 await db.exec(tables, []);
-await db.upgradeTableToCrr("projects");
-await db.upgradeTableToCrr("players");
-await db.upgradeTableToCrr("tracks");
-await db.upgradeTableToCrr("regions", {
-  manualConflictColumns: ["start", "end"]
+await db.upgradeTableToCrr("projects", {
+  replicate: {
+    exclude: ["lastAccessed"]
+  }
 });
-await db.upgradeTableToCrr("input");
-await db.upgradeTableToCrr("undo_stack");
+await db.upgradeTableToCrr("players", {
+  replicate: {
+    exclude: ["elapsedTime"]
+  }
+});
+await db.upgradeTableToCrr("tracks", {
+  replicate: {
+    exclude: ["muted", "mutedBySolo", "soloed"]
+  }
+});
+await db.upgradeTableToCrr("regions", {
+  manualConflict: {
+    include: ["start", "end", "deleted"]
+  }
+});
 await db.finalize();
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   // <StrictMode>
   <SqliteContext.Provider value={db}>
-      <Inspector>
-        <App />
-      </Inspector>
+    <Inspector>
+      <App />
+    </Inspector>
   </SqliteContext.Provider>
   // </StrictMode>,
 )

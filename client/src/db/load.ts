@@ -1,5 +1,5 @@
 import { Change, RowConflict, SqliteDB } from "@jakobsaadbye/teilen-sql";
-import { ProjectRow, PlayerRow, RegionRow, TrackRow } from "./types.ts";
+import { ProjectRow, PlayerRow, RegionRow, TrackRow, RegionConflictRow } from "./types.ts";
 import { Player } from "../core/player.ts";
 import { TrackKind } from "../core/track.ts";
 import { TrackManager } from "@core/trackManager.ts";
@@ -9,10 +9,11 @@ import { Region } from "../core/track.ts";
 import { Entity } from "@core/entity.ts";
 import { CreateNewProject, Project } from "@core/project.ts";
 import { Action, PlayerInput } from "@core/input.ts";
+import { getContiniousRegions as getConflictingSections, getContiniousRegions, RegionConflict } from "@core/conflict.ts";
 
-const deserialize = (dest: Entity, row: any) => {
+const deserializeRow = (dest: Entity, row: any) => {
     if (!row) return;
-    
+
     for (const key of Object.keys(row)) {
         if (typeof dest[key] === "boolean") {
             dest[key] = row[key] ? true : false
@@ -44,7 +45,7 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
         return false;
     }
     const project = new Project();
-    deserialize(project, projectRow);
+    deserializeRow(project, projectRow);
 
     const trackRows = await db.select<TrackRow[]>(`SELECT * FROM "tracks" WHERE projectId = ?`, [project.id]);
     const regionRows = await db.select<RegionRow[]>(`SELECT * FROM "regions" WHERE projectId = ?`, [project.id]);
@@ -61,7 +62,7 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
         }
 
         const track = new Track(row.kind as TrackKind, file, project.id);
-        deserialize(track, row);
+        deserializeRow(track, row);
 
         if (!track.deleted) {
             try {
@@ -73,27 +74,42 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
         }
     }
 
+    //
     // Load region conflicts
-    const conflicts = await db.getConflicts<RegionRow>("regions", project.id);
-    for (const conflict of conflicts) {
-        // Add any conflicts of others to the track
-        const row = conflict.their;
-        const theirRegion = new Region(row.trackId, row.projectId)
-        deserialize(theirRegion, row)
+    //
+    const regionConflicts = await db.select<RegionConflictRow[]>(`SELECT * FROM "region_conflicts" WHERE projectId = ?`, [project.id]);
+    for (const track of trackManager.tracks) {
+        const relatedConflicts = regionConflicts.filter(region => region.trackId === track.id);
+
+        const theirRegionRows: RegionRow[] = [];
+        for (const conflict of relatedConflicts) {
+            const row = JSON.parse(conflict.theirRegion) as RegionRow;
+            theirRegionRows.push(row);
+        }
+
+        const continiousRegionRows = getContiniousRegions(theirRegionRows);
         
-        const track = trackManager.GetTrackWithId(theirRegion.trackId);
-        if (!track) continue
+        // Turn each overlap into full region objects
+        const conflictingSections: Region[][] = [];
+        for (const rows of continiousRegionRows) {
+            const section: Region[] = [];
+            for (const row of rows) {
+                const region = new Region(track.id, project.id);
+                deserializeRow(region, row);
+                section.push(region);
+            }
+            conflictingSections.push(section);
+        }
 
-        track.conflictingRegions.push(theirRegion);
+        track.conflictingSections = conflictingSections;
     }
-
 
     // Load regions
     for (const track of trackManager.tracks) {
         const relatedRegions = regionRows.filter(row => row.trackId === track.id);
         for (const row of relatedRegions) {
             const region = new Region(row.trackId, row.projectId);
-            deserialize(region, row);
+            deserializeRow(region, row);
             region.data = track.audioData;
 
             track.regions.push(region);
@@ -103,12 +119,12 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
     // Load player
     const player = new Player(trackManager, project.id);
     const playerRow = await db.first<PlayerRow>(`SELECT * FROM "players" WHERE projectId = ?`, [project.id]);
-    deserialize(player, playerRow);
+    deserializeRow(player, playerRow);
 
     // Load input + undo stack
     const input = new PlayerInput(project.id);
     const inputRow = await db.first<PlayerRow>(`SELECT * FROM "input" WHERE projectId = ?`, [project.id]);
-    deserialize(input, inputRow);
+    deserializeRow(input, inputRow);
 
     const undoStackRows = await db.select<any[]>(`SELECT * FROM "undo_stack" WHERE projectId = ? ORDER BY position ASC`, [project.id]);
 
@@ -130,7 +146,7 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
                         entity = trackManager.GetRegionWithId(id);
                         break;
                     }
-                    case "tracks" : {
+                    case "tracks": {
                         entity = trackManager.GetTrackWithId(id);
                         break;
                     }
@@ -169,4 +185,15 @@ export const ReloadProject = async (ctx: Context, db: SqliteDB, changes: Change[
     await LoadProject(ctx, db, project.id);
 
     ctx.S({ ...ctx });
+}
+
+const regionConflicts2Regions = (conflicts: RegionConflictRow[]) => {
+    const deserialize = (conflict: RegionConflictRow): Region => {
+        const row = JSON.parse(conflict.theirRegion) as RegionRow;
+        const region = new Region(row.trackId, row.projectId);
+        deserializeRow(region, row);
+        return region;
+    }
+
+    return conflicts.map(deserialize);
 }

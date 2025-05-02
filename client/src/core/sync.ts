@@ -1,20 +1,28 @@
-import { Change, Syncer } from "@jakobsaadbye/teilen-sql";
+import { Change, Commit, DocumentSnapshot, PullResult, RowConflict, Syncer, unique } from "@jakobsaadbye/teilen-sql";
 import { Context } from "@core/context.ts";
 import { ReloadProject } from "@/db/load.ts";
+import { handleHighlevelConflicts } from "@core/conflict.ts";
+import { RegionRow, TrackRow } from "@/db/types.ts";
+
+
+
 
 export const handlePull = async (ctx: Context, syncer: Syncer) => {
     const db = ctx.db;
 
     const results = await syncer.pullCommits(db, ctx.project.id);
-    if (results.length === 0) return; 
-    
-    const pull = results.find(r => r.documentId === ctx.project.id);
-    if (!pull) {
-        // Already up to date
+    if (results.length === 0) {
+        console.log("Nothing was pulled");
         return;
     }
 
-    // Any manual conflicts are added to the database and loaded after ReloadProject
+    const pull = results.find(r => r.documentId === ctx.project.id);
+    if (!pull) {
+        console.log("Project is up to date");
+        return;
+    }
+    
+    await handleHighlevelConflicts(ctx, pull);
 
     await postProcessAppliedChanges(ctx, pull.appliedChanges);
     await ReloadProject(ctx, db, pull.appliedChanges);
@@ -28,6 +36,8 @@ export const handlePush = async (ctx: Context, syncer: Syncer) => {
         console.log(result);
     }
 }
+
+
 
 const postProcessAppliedChanges = async (ctx: Context, changes: Change[]) => {
     if (changes.length === 0) return;

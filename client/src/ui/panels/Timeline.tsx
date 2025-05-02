@@ -1,7 +1,7 @@
 // @deno-types="npm:@types/react@19"
 import { useEffect, useState, useRef } from "react";
 import { Context, useCtx } from "@core/context.ts";
-import { Rectangle, RF } from "@core/track.ts";
+import { Rectangle, Region, RF, Track } from "@core/track.ts";
 import { useDB } from "@jakobsaadbye/teilen-sql/react";
 import { SqliteDB } from "@jakobsaadbye/teilen-sql";
 import { SaveEntities } from "@/db/save.ts";
@@ -151,25 +151,7 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
         region.height = trackHeight;
 
         // Frequency visualization
-        const frequencyData = track.frequencyData;
-
-        ctx.fillStyle = "#FFFFFF";
-        if (track.muted || track.mutedBySolo) {
-          ctx.fillStyle = "#E0E0E0";
-        }
-
-        const regionWidthBeforeCutting = region.totalDuration / secondsPerBar * barWidth;
-        const cuttedX = region.offsetStart / secondsPerBar * barWidth;
-        const lineWidth = regionWidthBeforeCutting / frequencyData.length;
-        for (let i = 0; i < frequencyData.length; i++) {
-          const lineHeight = Math.abs(frequencyData[i] * region.height * 0.90);
-          const x = (region.x - cuttedX + 1) + i * lineWidth;
-
-          if (x < region.x + 1 || x > region.x + region.width - 4) continue;
-
-          const y = region.y + region.height / 2 - lineHeight / 2;
-          ctx.fillRect(x, y, lineWidth, lineHeight);
-        }
+        drawFrequencies(ctx, state, track, region, barWidth);
 
         // Cursor style
         if (region.Is(RF.hovered)) {
@@ -180,73 +162,80 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
         }
       }
 
-      // Conflicting regions
-      for (const region of track.conflictingRegions) {
-        const secondsPerBar = 240.0 / state.player.tempo;
+      // Conflicting sections of regions
+      const trackConflictHeight = trackHeight;
+      for (const section of track.conflictingSections) {
+        for (const region of section) {
 
-        const gapY = 2;
+          const secondsPerBar = 240.0 / state.player.tempo;
 
-        const trackConflictHeight = 70;
+          const gapY = 2;
 
-        const x = region.start / secondsPerBar * barWidth;
-        let y = (trackIndex + 1) * trackHeight + TRACK_START;
-        const width = region.duration / secondsPerBar * barWidth;
-        const height = trackConflictHeight;
+          const x = region.start / secondsPerBar * barWidth;
+          let y = (trackIndex + 1) * trackHeight + TRACK_START;
+          const width = region.duration / secondsPerBar * barWidth;
+          const height = trackConflictHeight;
 
-        y += gapY * (trackIndex + 1);
+          y += gapY * (trackIndex + 1) + skipY;
 
-        const bgColor = REGION_COLORS[i];
-        const outline = "#303030";
-        DrawStrokedRectangle(ctx, x, y, width, height, outline, bgColor, 2, [8], 0.60);
+          const bgColor = REGION_COLORS[i];
+          const outline = "#303030";
+          DrawStrokedRectangle(ctx, x, y, width, height, outline, bgColor, 2, [8], 0.60);
 
-        region.x = x;
-        region.y = y;
-        region.width = width;
-        region.height = height;
+          region.x = x;
+          region.y = y;
+          region.width = width;
+          region.height = height;
 
-        // Accept / decline text
-        {
-          const fontSize = 28;
-          ctx.font = fontSize + "px serif";
+          drawFrequencies(ctx, state, track, region, barWidth);
 
+          // Accept / decline text
+          {
+            const fontSize = 28;
+            ctx.font = fontSize + "px serif";
 
-          const colorHovered = "#fefefe";
-          // const colorNotHovered = "#707070";
-          const colorNotHovered = "#404040";
-          let acceptFillStyle = colorNotHovered;
-          let declineFillStyle = colorNotHovered;
-          if (region.acceptHovered) {
-            acceptFillStyle = colorHovered;
+            const colorHovered = "#fefefe";
+            const colorNotHovered = "#404040";
+            let acceptFillStyle = colorNotHovered;
+            let declineFillStyle = colorNotHovered;
+            if (region.acceptHovered) {
+              acceptFillStyle = colorHovered;
+            }
+            if (region.declineHovered) {
+              declineFillStyle = colorHovered;
+            }
+
+            const aX = x + 10;
+            const dX = x + 112;
+            const aY = y + 30 + (fontSize / 3.0);
+            const dY = aY;
+
+            ctx.fillStyle = acceptFillStyle;
+            ctx.fillText("Accept", aX, aY);
+            ctx.fillStyle = colorNotHovered;
+            ctx.fillText("/", aX + 88, aY);
+            ctx.fillStyle = declineFillStyle;
+            ctx.fillText("Decline", dX, dY);
+
+            const pad = 4;
+            region.acceptHitbox.x = aX - pad;
+            region.acceptHitbox.y = aY - fontSize;
+            region.acceptHitbox.width = 80 + 2 * pad;
+            region.acceptHitbox.height = fontSize + 2 * pad;
+            region.declineHitbox.x = dX - pad;
+            region.declineHitbox.y = dY - fontSize;
+            region.declineHitbox.width = 90 + 2 * pad;
+            region.declineHitbox.height = fontSize + 2 * pad;
+
+            const abox = region.acceptHitbox;
+            const dbox = region.declineHitbox;
+            // DrawRectangleRect(ctx, abox, "#f20af2", [0], 0.2);
+            // DrawRectangleRect(ctx, dbox, "#f20af2", [0], 0.2);
           }
-          if (region.declineHovered) {
-            declineFillStyle = colorHovered;
-          }
-
-          const aX = x + 10;
-          const dX = x + 100;
-          const aY = y + (height / 2.0) + (fontSize / 3.0);
-
-          ctx.fillStyle = acceptFillStyle;
-          ctx.fillText("Accept", aX, aY);
-          ctx.fillStyle = declineFillStyle;
-          ctx.fillText("Decline", dX, aY);
-
-          const pad = 4;
-          region.acceptHitbox.x = aX - pad;
-          region.acceptHitbox.y = aY - fontSize;
-          region.acceptHitbox.width = 80 + 2 * pad;
-          region.acceptHitbox.height = fontSize + 2 * pad;
-          region.declineHitbox.x = dX - pad;
-          region.declineHitbox.y = aY - fontSize;
-          region.declineHitbox.width = 90 + 2 * pad;
-          region.declineHitbox.height = fontSize + 2 * pad;
-
-          const abox = region.acceptHitbox;
-          const dbox = region.declineHitbox;
-          // DrawRectangleRect(ctx, abox, "#f20af2", [0], 0.2);
-          // DrawRectangleRect(ctx, dbox, "#f20af2", [0], 0.2);
         }
+      }
 
+      if (track.conflictingSections.length > 0) {
         skipY += trackConflictHeight;
       }
 
@@ -321,6 +310,32 @@ const drawOneFrame = (canvas: HTMLCanvasElement, ctx: Canvas2D, zoom: number, st
     ctx.lineTo(x, y);
     ctx.fill();
     ctx.stroke();
+  }
+}
+
+const drawFrequencies = (ctx: Canvas2D, state: Context, track: Track, region: Region, barWidth: number) => {
+
+  const frequencyData = track.frequencyData;
+  if (!frequencyData) return;
+
+  const secondsPerBar = 240.0 / state.player.tempo;
+
+  ctx.fillStyle = "#FFFFFF";
+  if (track.muted || track.mutedBySolo) {
+    ctx.fillStyle = "#E0E0E0";
+  }
+
+  const regionWidthBeforeCutting = region.totalDuration / secondsPerBar * barWidth;
+  const cuttedX = region.offsetStart / secondsPerBar * barWidth;
+  const lineWidth = regionWidthBeforeCutting / frequencyData.length;
+  for (let i = 0; i < frequencyData.length; i++) {
+    const lineHeight = Math.abs(frequencyData[i] * region.height * 0.90);
+    const x = (region.x - cuttedX + 1) + i * lineWidth;
+
+    if (x < region.x + 1 || x > region.x + region.width - 4) continue;
+
+    const y = region.y + region.height / 2 - lineHeight / 2;
+    ctx.fillRect(x, y, lineWidth, lineHeight);
   }
 }
 
@@ -555,27 +570,29 @@ const handleMouseInput = async (canvas: HTMLCanvasElement, ctx: Canvas2D, e: Mou
     }
 
     // Conflict region controls
-    for (const region of track.conflictingRegions) {
+    for (const section of track.conflictingSections) {
+      for (const region of section) {
 
-      // Check if accept or decline is hovered and or clicked
-      const abox = region.acceptHitbox;
-      const dbox = region.declineHitbox;
-
-      if (CollisionPointRect(mouseX, mouseY, abox.x, abox.y, abox.width, abox.height)) {
-        region.acceptHovered = true;
-        if (e.type === "mousedown") {
-          input.AcceptRegionChange(state, region);
+        // Check if accept or decline is hovered and or clicked
+        const abox = region.acceptHitbox;
+        const dbox = region.declineHitbox;
+  
+        if (CollisionPointRect(mouseX, mouseY, abox.x, abox.y, abox.width, abox.height)) {
+          region.acceptHovered = true;
+          if (e.type === "mousedown") {
+            input.AcceptSectionChange(state, section);
+          }
+        } else {
+          region.acceptHovered = false;
         }
-      } else {
-        region.acceptHovered = false;
-      }
-      if (CollisionPointRect(mouseX, mouseY, dbox.x, dbox.y, dbox.width, dbox.height)) {
-        region.declineHovered = true;
-        if (e.type === "mousedown") {
-          input.DeclineRegionChange(state, region);
+        if (CollisionPointRect(mouseX, mouseY, dbox.x, dbox.y, dbox.width, dbox.height)) {
+          region.declineHovered = true;
+          if (e.type === "mousedown") {
+            input.DeclineSectionChange(state, section);
+          }
+        } else {
+          region.declineHovered = false;
         }
-      } else {
-        region.declineHovered = false;
       }
     }
   }
@@ -702,8 +719,6 @@ export const Timeline = () => {
 
   useEffect(() => {
     if (!canvasRef.current || !canvasCtx) return;
-
-    console.log("Reran");
 
     const canvas = canvasRef.current;
 

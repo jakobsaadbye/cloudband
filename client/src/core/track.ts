@@ -7,6 +7,7 @@ type TrackKind = 'audio' | 'midi'
 
 class Track implements Entity {
     table = "tracks";
+    replicated = true;
     static serializedFields = [
         "id",
         "projectId",
@@ -37,7 +38,7 @@ class Track implements Entity {
     isUploaded: boolean
 
     regions: Region[]
-    conflictingRegions: Region[]
+    conflictingSections: Region[][]
 
     deleted: boolean
     muted: boolean
@@ -64,7 +65,7 @@ class Track implements Entity {
 
         this.regions = [];
 
-        this.conflictingRegions = [];
+        this.conflictingSections = [];
 
         this.deleted = false;
         this.muted = false;
@@ -129,6 +130,15 @@ class Track implements Entity {
         this.panner.pan.value = value;
         ctx.S({ ...ctx });
     }
+
+    RemoveConflictingSection(toRemove: Region[]) {
+        if (toRemove.length === 0) return;
+        const first = toRemove[0];
+        this.conflictingSections = this.conflictingSections.filter(section => {
+            if (section.find(region => region.id === first.id)) return false;
+            return true;
+        })
+    }
 }
 
 const RF = { // Region_Flags
@@ -151,6 +161,7 @@ export type Rectangle = {
 
 class Region implements Entity {
     table = "regions";
+    replicated = true;
     static serializedFields = [
         "id",
         "projectId",

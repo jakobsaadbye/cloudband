@@ -96,7 +96,7 @@ const CommitPanel = ({ pushCount }: CommitPanelProps) => {
     const db = useDB();
     const ctx = useCtx();
     const syncer = useSyncer();
-
+    
     const rawUncommittedChanges = useQuery((db, projectId: string) => db.getUncommittedChanges(projectId), [ctx.project.id], { tableDependencies: ["crr_changes"] }).data;
 
     const commitInput = useRef(null);
@@ -204,7 +204,7 @@ const HistoryPanel = () => {
 
     return (
         <CollapsablePanel label="History">
-            <div className="pt-1">
+            <div className="py-2">
                 {commits && commits.map((commit, i) => {
                     const isHead = commit.id === head?.id;
 

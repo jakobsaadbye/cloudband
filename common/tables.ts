@@ -5,16 +5,16 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS projects (
     id text primary key,
     name text,
-    lastAccessed int,
+    lastAccessed int default 0,
     livemodeEnabled boolean
 );
 
 CREATE TABLE IF NOT EXISTS players (
     id text primary key,
     projectId references projects(id),
-    volume float,
-    tempo int,
-    elapsedTime double
+    volume float default 0.5,
+    tempo int default 100,
+    elapsedTime double default 0.0
 );
 
 CREATE TABLE IF NOT EXISTS tracks (
@@ -26,9 +26,9 @@ CREATE TABLE IF NOT EXISTS tracks (
     filename text,
     isUploaded boolean,
     deleted boolean,
-    muted boolean,
-    mutedBySolo boolean,
-    soloed boolean
+    muted boolean default 0,
+    mutedBySolo boolean default 0,
+    soloed boolean default 0
 );
 
 CREATE TABLE IF NOT EXISTS regions (
@@ -42,6 +42,13 @@ CREATE TABLE IF NOT EXISTS regions (
     totalDuration double,
     flags int,
     deleted boolean
+);
+
+CREATE TABLE IF NOT EXISTS region_conflicts (
+    id text primary key,
+    projectId references projects(id),
+    trackId references tracks(id) on delete cascade,
+    theirRegion text
 );
 
 CREATE TABLE IF NOT EXISTS undo_stack (
@@ -59,6 +66,11 @@ CREATE TABLE IF NOT EXISTS input (
     selectedTrack  references tracks(id),
     selectedRegion references regions(id),
     undos int
+);
+
+CREATE TABLE IF NOT EXISTS ui_state (
+    lotr integer primary key default 1,
+    active_side_panel text
 );
 
 COMMIT;

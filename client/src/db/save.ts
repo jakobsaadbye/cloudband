@@ -13,12 +13,14 @@ export const SaveEntireProject = async (ctx: Context) => {
     await SaveEntity(ctx, ctx.input);
 }
 
-const serialize = (e: Entity) => {
+const serializeEntity = (e: Entity) => {
     const serializedFields = e.constructor.prototype.constructor.serializedFields as string[];
     if (!serializedFields) {
         console.error(`No serialized fields on entity`, e);
         return [];
     }
+
+    // @TODO: Handle [*] to serialize all fields in entity
 
     const fields: [string, any][] = serializedFields
         .map(field => {
@@ -37,7 +39,7 @@ export const SaveEntities = async (ctx: Context, entities: Entity[]) => {
 
     const documentId = ctx.project.id;
 
-    const serialized = entities.map(serialize);
+    const serialized = entities.map(serializeEntity);
 
     const obj = serialized[0];
 
@@ -46,12 +48,21 @@ export const SaveEntities = async (ctx: Context, entities: Entity[]) => {
 
     const updateStr = columns.filter(col => col !== "id").map(col => `${col} = EXCLUDED.${col}`).join(',\n\t\t\t');
 
-    const err = await db.execTrackChanges(`
+    const stmt = `
         INSERT INTO "${entities[0].table}" (${columns.join(', ')}) 
         VALUES ${sqlPlaceholdersNxM(obj.length, serialized.length)}
         ON CONFLICT DO UPDATE SET
             ${updateStr}
-    `, values, documentId);
+    `;
+
+    const replicate = entities[0].replicated;
+    let err;
+    if (replicate) {
+        err = await db.execTrackChanges(stmt, values, documentId);
+    } else {
+        err = await db.exec(stmt, values);
+    }
+
     if (err) {
         console.error(err);
     }
@@ -94,12 +105,12 @@ export const SaveAction = async (ctx: Context, action: Action, index: number) =>
     const values = Object.values(serialized);
     const updateStr = columns.map(col => `${col} = EXCLUDED.${col}`).join(',\n\t\t\t');
 
-    const err = await db.execTrackChanges(`
+    const err = await db.exec(`
         INSERT INTO "undo_stack" (${columns.join(',')}) 
         VALUES ${sqlPlaceholdersNxM(columns.length, 1)}
         ON CONFLICT DO UPDATE SET
             ${updateStr}
-    `, values, ctx.project.id);
+    `, values);
     if (err) {
         console.error(err);
     }

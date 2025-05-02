@@ -13,12 +13,7 @@ const db = new Database("cloudband.db", { int64: true }); // int64 here is impor
 const wDb = new SqliteDBWrapper(db) as unknown as SqliteDB;
 await wDb.exec(insertCrrTablesStmt, []);
 await wDb.exec(tables, []);
-await wDb.upgradeTableToCrr("projects");
-await wDb.upgradeTableToCrr("players");
-await wDb.upgradeTableToCrr("tracks");
-await wDb.upgradeTableToCrr("regions", {
-    manualConflictColumns: ["start", "end"]
-});
+await wDb.upgradeAllTablesToCrr();
 await wDb.finalize();
 
 

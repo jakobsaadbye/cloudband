@@ -8,6 +8,7 @@ import { SaveEntireProject } from "@/db/save.ts";
 
 export class Project implements Entity {
     table = "projects";
+    replicated = true;
     static serializedFields = [
         "id",
         "name",

@@ -4,6 +4,7 @@ import { SaveAction, SaveEntireProject, SaveEntities, SaveEntity } from "../db/s
 import { undo, redo } from "@core/undo.ts";
 import { Entity } from "@core/entity.ts";
 import { generateId } from "@core/id.ts";
+import { sqlPlaceholders } from "@jakobsaadbye/teilen-sql";
 
 export type ActionKind =
     | "region-delete"
@@ -36,6 +37,7 @@ export const getActionName = (action: Action) => {
 
 class PlayerInput implements Entity {
     table = "input"
+    replicated = false;
     id: string
     projectId: string
     static serializedFields = [
@@ -131,37 +133,59 @@ class PlayerInput implements Entity {
         ctx.S({ ...ctx });
     }
 
-    async AcceptRegionChange(ctx: Context, theirRegion: Region) {
+    async AcceptSectionChange(ctx: Context, section: Region[]) {
+        if (section.length === 0) return;
+
         const db = ctx.db;
-        await db.resolveConflict("regions", theirRegion.id, theirRegion.projectId, "their");
 
-        // Copy the data on their region onto our region
-        const ourRegion = ctx.trackManager.GetRegionWithId(theirRegion.id);
-        if (!ourRegion) {
-            console.error(`Region was not found`);
-            return;
+        // Copy the data on their regions into our regions
+        const ourRegions: Region[] = [];
+        for (const theirRegion of section) {
+            const ourRegion = ctx.trackManager.GetRegionWithId(theirRegion.id);
+            if (!ourRegion) {
+                console.error(`Region was not found`);
+                return;
+            }
+            ourRegion.start = theirRegion.start;
+            ourRegion.end = theirRegion.end;
+            ourRegion.offsetStart = theirRegion.offsetStart;
+            ourRegion.offsetEnd = theirRegion.offsetEnd;
+            ourRegions.push(ourRegion);
         }
-        ourRegion.start = theirRegion.start;
-        ourRegion.end = theirRegion.end;
-        ourRegion.offsetStart = theirRegion.offsetStart;
-        ourRegion.offsetEnd = theirRegion.offsetEnd;
 
-        await SaveEntity(ctx, ourRegion);
+        await SaveEntities(ctx, ourRegions);
 
-        // Remove conflicting region from the track
-        const track = ctx.trackManager.GetTrackWithId(theirRegion.trackId);
+        // If any of the conflicts came from teilen, resolve those by picking theirs
+        for (const region of section) {
+            await db.resolveConflict("regions", region.id, region.projectId, "all-their");
+        }
+
+        // Remove conflicting section from the track + db
+        const track = ctx.trackManager.GetTrackWithId(section[0].trackId);
         if (!track) return;
-        track.conflictingRegions = track.conflictingRegions.filter(x => x.id !== theirRegion.id);
-        this.Performed(ctx, "region-accept-their", [theirRegion]);
+        track.RemoveConflictingSection(section);
+        const regionConflictIds = section.map(region => region.id);
+        await ctx.db.exec(`DELETE FROM "region_conflicts" WHERE id IN (${sqlPlaceholders(regionConflictIds)})`, [...regionConflictIds]);
+
+        this.Performed(ctx, "region-accept-their", section);
     }
 
-    async DeclineRegionChange(ctx: Context, region: Region) {
+    async DeclineSectionChange(ctx: Context, section: Region[]) {
         const db = ctx.db;
-        await db.resolveConflict("regions", region.id, region.projectId, "our");
-        const track = ctx.trackManager.GetTrackWithId(region.trackId);
+
+        // Resolve conflict by picking our changes from the conflict
+        for (const region of section) {
+            await db.resolveConflict("regions", region.id, region.projectId, "all-our");
+        }
+
+        // Also, remove the conflict from the track
+        const track = ctx.trackManager.GetTrackWithId(section[0].trackId);
         if (!track) return;
-        track.conflictingRegions = track.conflictingRegions.filter(x => x.id !== region.id);
-        this.Performed(ctx, "region-decline-their", [region]);
+        track.RemoveConflictingSection(section);
+        const regionConflictIds = section.map(region => region.id);
+        await ctx.db.exec(`DELETE FROM "region_conflicts" WHERE id IN (${sqlPlaceholders(regionConflictIds)})`, [...regionConflictIds]);
+
+        this.Performed(ctx, "region-decline-their", section);
     }
 
     CopyRegion(ctx: Context) {

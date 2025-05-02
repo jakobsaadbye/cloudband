@@ -6,6 +6,7 @@ import { Entity } from "@core/entity.ts";
 
 class Player implements Entity {
     table = "players";
+    replicated = true;
     id: string
     projectId: string
 
