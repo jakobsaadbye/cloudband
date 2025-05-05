@@ -141,7 +141,7 @@ const TrackCard = ({ track }: CardProps) => {
                     </div>
                     <div className="ml-2 flex gap-x-4">
                         <div className=" flex flex-col items-end">
-                            <input style={{ writingMode: 'vertical-lr', direction: 'rtl' }} className="h-16 accent-gray-500" list="volume-steplist" title="Volume" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} />
+                            <input style={{ writingMode: 'vertical-lr', direction: 'rtl' }} className="h-16 accent-cyan-700" list="volume-steplist" title="Volume" type="range" min={0} max={1.0} step={0.01} value={track.volume} onChange={e => track.SetVolume(ctx, +e.target.value)} />
                             <datalist id="volume-steplist">
                                 <option>0.0</option>
                                 <option>0.25</option>
@@ -152,7 +152,7 @@ const TrackCard = ({ track }: CardProps) => {
                             <p className="text-xs text-center">Vol</p>
                         </div>
                         <div className="flex flex-col items-center justify-center">
-                            <input title="Pan" className="w-16 accent-gray-500" list="pan-steplist" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
+                            <input title="Pan" className="w-16 accent-cyan-700" list="pan-steplist" type="range" min={-1.0} max={1.0} step={0.01} value={track.pan} onChange={e => track.SetPan(ctx, +e.target.value)} />
                             <datalist id="pan-steplist">
                                 <option>-1</option>
                                 <option>0</option>

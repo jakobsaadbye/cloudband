@@ -104,7 +104,7 @@ export class TrackManager {
         track.audioData = audioBuffer;
 
         // Load in the frequency data to be visualized
-        track.frequencyData = this.loadReducedFrequencyData(ctx, track.id, audioBuffer);
+        track.frequencyData = this.loadFrequencyData(ctx, track.id, audioBuffer);
 
         track.isLoaded = true;
 
@@ -115,7 +115,7 @@ export class TrackManager {
         }
     }
 
-    loadReducedFrequencyData(ctx: Context, trackId: string, audioBuffer: AudioBuffer) {
+    loadFrequencyData(ctx: Context, trackId: string, audioBuffer: AudioBuffer) {
         const cached = ctx.cache.getFrequencyData(trackId);
         if (cached) {
             return cached;

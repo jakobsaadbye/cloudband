@@ -3,15 +3,22 @@ import { useEffect, useState, useRef, LegacyRef, Ref } from "react";
 import { useIcons } from "@ui/hooks/useIcons.tsx";
 import { twMerge } from "tailwind-merge";
 
+type HoverAction = {
+    name: string
+    icon: React.ReactNode
+    onClick: () => void
+}
+
 type Props = {
     label: string
     icon?: React.ReactNode
     children: React.ReactNode
     className?: string
     headerClassName?: string
-    reference?: Ref<HTMLDivElement>
+    hoverActions?: HoverAction[]
 }
-export const CollapsablePanel = ({ label, icon, children, className, headerClassName, reference }: Props) => {
+
+export const CollapsablePanel = ({ label, icon, children, className, headerClassName, hoverActions }: Props) => {
     const [isOpen, setIsOpen] = useState(true);
 
     const [height, setHeight] = useState<string | number>("0px");
@@ -31,7 +38,7 @@ export const CollapsablePanel = ({ label, icon, children, className, headerClass
     const { ArrowRight, ArrowDown } = useIcons();
 
     return (
-        <section 
+        <section
             className={twMerge("bg-gray-200 overflow-scroll border-b-1 border-gray-400")}
             style={{
                 flexGrow: isOpen ? 1 : 0,
@@ -39,24 +46,38 @@ export const CollapsablePanel = ({ label, icon, children, className, headerClass
                 flexBasis: isOpen ? "50%" : "0%",
             }}
         >
-            <div className={twMerge("flex items-center justify-between p-1 bg-gray-300 select-none hover:bg-gray-250", headerClassName)} onClick={() => setIsOpen(!isOpen)}>
-                <div className="flex">
+            <div className={twMerge("group h-8 flex items-center justify-between p-1 bg-gray-300 select-none hover:bg-gray-250", headerClassName)} onClick={() => setIsOpen(!isOpen)}>
+                <div className="flex text-center">
+                    {isOpen ? <ArrowDown className="fill-gray-500 w-5 h-5 m-0" /> : <ArrowRight className="fill-gray-500 w-5 h-5 m-0" />}
                     {icon && (
                         <div className="flex justify-center items-center">
                             {icon}
                         </div>
                     )}
-                    <p className="pl-1 font-semibold text-gray-600 text-sm">{label}</p>
+                    <p className="font-semibold text-gray-600 text-sm">{label}</p>
                 </div>
-                {isOpen ? <ArrowDown className="fill-gray-500 w-6 h-6" /> : <ArrowRight />}
+
+                <div className="flex">
+                    <div className="hidden group-hover:flex pr-1">
+                        {hoverActions && hoverActions.map((action, i) => {
+                            return (
+                                <div title={action.name} key={i} className="px-1 hover:bg-gray-200 rounded-sm" onMouseDown={(e) => { e.preventDefault(); action.onClick() }}>
+                                    {action.icon}
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    
+                </div>
             </div>
-            <div 
+            <div
                 style={{
                     maxHeight: isOpen ? "300px" : "0px",
                     transition: "max-height 0.1s linear",
                     overflow: "scroll",
                 }}
-                className="w-full" 
+                className="w-full"
             >
                 <div ref={contentRef} className={twMerge("flex w-full flex-col m-0 bg-gray-200 select-none overflow-scroll", className)}>
                     {children}

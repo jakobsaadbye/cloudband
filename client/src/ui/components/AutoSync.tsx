@@ -72,7 +72,7 @@ export const AutoSync = () => {
 
             console.log(`Pulled ${changes.length} changes`);
 
-            await ReloadProject(ctx, db, changes);
+            await ReloadProject(ctx);
         }
 
         if (ENABLED) {

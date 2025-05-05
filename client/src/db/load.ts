@@ -178,22 +178,10 @@ export const LoadProject = async (ctx: Context, db: SqliteDB, id: string) => {
     return true;
 }
 
-export const ReloadProject = async (ctx: Context, db: SqliteDB, changes: Change[]) => {
+export const ReloadProject = async (ctx: Context) => {
     const project = ctx.project;
 
-    // Fallback to "full" reload
-    await LoadProject(ctx, db, project.id);
+    await LoadProject(ctx, ctx.db, project.id);
 
     ctx.S({ ...ctx });
-}
-
-const regionConflicts2Regions = (conflicts: RegionConflictRow[]) => {
-    const deserialize = (conflict: RegionConflictRow): Region => {
-        const row = JSON.parse(conflict.theirRegion) as RegionRow;
-        const region = new Region(row.trackId, row.projectId);
-        deserializeRow(region, row);
-        return region;
-    }
-
-    return conflicts.map(deserialize);
 }

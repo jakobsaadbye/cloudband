@@ -1,4 +1,4 @@
-import { Commit, DocumentSnapshot, PullResult } from "@jakobsaadbye/teilen-sql";
+import { Commit, DocumentSnapshot, pksEqual, PullResult } from "@jakobsaadbye/teilen-sql";
 import { TrackRow, RegionRow } from "@/db/types.ts";
 import { Context } from "@core/context.ts";
 import { Entity } from "@core/entity.ts";
@@ -31,14 +31,9 @@ export class RegionConflict implements Entity {
 export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) => {
     const db = ctx.db;
 
-    // if (pull.appliedChanges.length === 0) return;
-
     //
     // Handle the situation of concurrent overlapping regions
     //
-    console.log(pull);
-    
-
     const theirRegionChanges = pull.concurrentChanges.their.filter(change => change.tbl_name === "regions");
     if (theirRegionChanges.length === 0) return;
     const ourRegionChanges = pull.concurrentChanges.our.filter(change => change.tbl_name === "regions");
@@ -87,7 +82,7 @@ export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) =
     }
 
     console.log("Our modified regions before filtering", ourModifiedRegions);
-    
+
     // Filter out region changes that didn't actually cause a difference by comparing it to the base version
     theirModifiedRegions = theirModifiedRegions.filter(region => differsFromBase(baseDoc, region));
     ourModifiedRegions = ourModifiedRegions.filter(region => differsFromBase(baseDoc, region));
@@ -99,7 +94,7 @@ export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) =
             return true;
         }
         if (positionsAreEqual(our, their)) {
-            
+
             return false;
         } else {
             return true;
@@ -107,12 +102,13 @@ export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) =
     });
 
     // Check if there is any overlap on the tracks on regions we both modified
+    const regionPksToRollback: string[] = [];
     const theirRegionsPerTrack = Object.groupBy(theirModifiedRegions, (region) => region.trackId) as { [trackId: string]: RegionRow[] };
     for (const [trackId, regions] of Object.entries(theirRegionsPerTrack)) {
 
         const ourRegions = ourModifiedRegions.filter(region => region.trackId === trackId);
         const theirRegions = regions;
-        
+
         if (ourRegions.length === 0) {
             // We didn't touch this entire track, so no way of conflict
             continue;
@@ -132,7 +128,20 @@ export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) =
         }
 
         await SaveEntities(ctx, conflicts);
-        
+
+        for (const region of overlap) {
+            // If their region is a newly inserted region and overlaps with one of our regions (thus, not recognized as manual conflict)
+            // we roll the region back to not appear in the 
+            const isNew = ourDoc.getRow("regions", region.id);
+            if (isNew) {
+                regionPksToRollback.push(region.id);
+            }
+        }
+    }
+
+    // Rollback any of the overlapping regions such that they don't show as current state
+    if (regionPksToRollback.length > 0) {
+        await db.execTrackChanges(`DELETE FROM "regions" WHERE ${pksEqual(db, "regions", regionPksToRollback)}`, []);
     }
 }
 

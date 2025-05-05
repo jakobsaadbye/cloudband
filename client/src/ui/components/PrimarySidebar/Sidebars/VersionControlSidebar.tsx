@@ -96,17 +96,17 @@ const CommitPanel = ({ pushCount }: CommitPanelProps) => {
     const db = useDB();
     const ctx = useCtx();
     const syncer = useSyncer();
-    
-    const rawUncommittedChanges = useQuery((db, projectId: string) => db.getUncommittedChanges(projectId), [ctx.project.id], { tableDependencies: ["crr_changes"] }).data;
+
+    const uncommittedChanges = useQuery((db, projectId: string) => db.getUncommittedChanges(projectId), [ctx.project.id], { tableDependencies: ["crr_changes"] }).data;
+
+    const changeCount = uncommittedChanges?.length ?? 0;
 
     const commitInput = useRef(null);
     const [commitMessage, setCommitMessage] = useState("");
     const [commitInputFocused, setCommitInputFocused] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
-    
+
     const textboxRows = commitMessage.split('\n').length;
-    const uncommittedChanges = rawUncommittedChanges?.filter(change => change.tbl_name !== "undo_stack") ?? [];
-    const changeCount = uncommittedChanges?.length ?? 0;
 
     useEffect(() => {
         const handleKeyboardInput = (e: KeyboardEvent) => {
@@ -146,10 +146,20 @@ const CommitPanel = ({ pushCount }: CommitPanelProps) => {
         setCommitMessage("");
     }
 
-    const { Sync, TripleDots } = useIcons();
+    const discardChanges = async () => {
+        await db.discardChanges(ctx.project.id);
+        await ReloadProject(ctx);
+    }
+
+    const { Sync, TripleDots, UndoIcon } = useIcons();
+
+
 
     return (
-        <CollapsablePanel label="Changes" className="pt-2">
+        <CollapsablePanel
+            label="Changes"
+            className="pt-2"
+        >
             <section className="flex flex-col gap-y-2 p-2">
                 <textarea
                     className="resize-none w-full px-2 text-gray-600 border-1 border-gray-400 focus:border-gray-600 focus:outline-none rounded-sm"
@@ -173,7 +183,14 @@ const CommitPanel = ({ pushCount }: CommitPanelProps) => {
                 )
                 }
             </section>
-            <CollapsablePanel label={`Changes (${changeCount})`} className="px-2 pb-2" headerClassName="bg-gray-200">
+            <CollapsablePanel
+                label={`Changes (${changeCount})`}
+                className="px-2 pb-2"
+                headerClassName="bg-gray-200"
+                hoverActions={[
+                    { name: "Discard Changes", onClick: discardChanges, icon: (<UndoIcon className="w-5" />)  }
+                ]}
+            >
                 <div className="flex flex-col max-w-64">
                     {uncommittedChanges && uncommittedChanges.map((change, i) => {
                         return (
@@ -197,7 +214,7 @@ const HistoryPanel = () => {
 
     const checkoutCommit = async (commit: Commit) => {
         await db.checkout(commit.id);
-        await ReloadProject(ctx, db, []);
+        await ReloadProject(ctx);
     }
 
     const { IconVersion } = useIcons();

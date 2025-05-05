@@ -25,7 +25,7 @@ export const handlePull = async (ctx: Context, syncer: Syncer) => {
     await handleHighlevelConflicts(ctx, pull);
 
     await postProcessAppliedChanges(ctx, pull.appliedChanges);
-    await ReloadProject(ctx, db, pull.appliedChanges);
+    await ReloadProject(ctx);
 }
 
 export const handlePush = async (ctx: Context, syncer: Syncer) => {

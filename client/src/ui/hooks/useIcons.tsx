@@ -19,6 +19,7 @@ import PeopleGroup from "../assets/icons/people_group.svg?react"
 import Headset from "../assets/icons/headset.svg?react"
 import HeadsetOff from "../assets/icons/headset_off.svg?react"
 import TripleDots from "../assets/icons/triple_dots.svg?react"
+import UndoIcon from "../assets/icons/undo.svg?react"
 
 export const useIcons = () => {
     return {
@@ -43,5 +44,6 @@ export const useIcons = () => {
         Headset,
         HeadsetOff,
         TripleDots,
+        UndoIcon
     }
 }
