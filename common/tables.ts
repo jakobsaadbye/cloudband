@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     pan float,
     filename text,
     isUploaded boolean,
+    createdAt int,
     deleted boolean,
     muted boolean default 0,
     mutedBySolo boolean default 0,
@@ -41,7 +42,10 @@ CREATE TABLE IF NOT EXISTS regions (
     end double,
     totalDuration double,
     flags int,
-    deleted boolean
+    deleted boolean,
+    conflicts boolean,
+    conflictsWith text references regions(id),
+    createdBy text
 );
 
 CREATE TABLE IF NOT EXISTS region_conflicts (

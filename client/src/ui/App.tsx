@@ -74,11 +74,12 @@ function App() {
               </div> */}
             </div>
 
-            <div className="w-100 h-full bg-gray-100 border-l-1 border-l-black/40">
+            {/* <div className="w-100 h-full bg-gray-100 border-l-1 border-l-black/40">
               <div className="flex flex-col">
                 <EditHistory />
               </div>
-            </div>
+            </div> */}
+
           </div>
         </main>
       </SyncContext.Provider>

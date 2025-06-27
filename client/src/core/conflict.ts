@@ -4,6 +4,8 @@ import { Context } from "@core/context.ts";
 import { Entity } from "@core/entity.ts";
 import { SaveEntities } from "@/db/save.ts";
 import { unique } from "@core/util.ts";
+import { Region } from "@core/track.ts";
+import { ReloadProject } from "@/db/load.ts";
 
 export class RegionConflict implements Entity {
     table = "region_conflicts";
@@ -28,6 +30,12 @@ export class RegionConflict implements Entity {
     }
 }
 
+const EPSILON = 1e-6;
+
+const overlaps = (a: Region, b: Region): boolean => {
+    return a.start < b.end - EPSILON && b.start < a.end - EPSILON;
+};
+
 export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) => {
     const db = ctx.db;
 
@@ -36,9 +44,45 @@ export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) =
     //
     const theirRegionChanges = pull.concurrentChanges.their.filter(change => change.tbl_name === "regions");
     if (theirRegionChanges.length === 0) return;
+
     const ourRegionChanges = pull.concurrentChanges.our.filter(change => change.tbl_name === "regions");
     if (ourRegionChanges.length === 0) return;
 
+    // Scan through all the tracks looking for conflicting region overlaps
+    const conflicts = [];
+    for (const t of ctx.trackManager.tracks) {
+        for (const r1 of t.regions) {
+            for (const r2 of t.regions) {
+                if (r1.id === r2.id) continue;
+                if (r1.createdBy === r2.createdBy) continue;
+
+                if (overlaps(r1, r2)) {
+
+                    const us = ctx.db.siteId;
+                    // Put the conflict on the other persons region
+                    if (r1.createdBy === us) {
+                        r2.conflicts = true;
+                        r2.conflictsWith = r1.id;
+                        conflicts.push(r2);
+                    } else {
+                        r1.conflicts = true;
+                        r1.conflictsWith = r2.id;
+                        conflicts.push(r1);
+                    }
+                }
+            }
+        }
+    }
+
+    if (conflicts.length > 0) {
+        console.log(`Detected conflicts !`);
+        await SaveEntities(ctx, conflicts);
+        await ReloadProject(ctx);
+    }
+
+    return;
+
+    // @Cleanup - This code down here was just too damn complicated! Replaced with the much simpler version above
     const ourLatestCommit = await db.first<Commit>(`SELECT MAX(applied_at), * FROM "crr_commits" WHERE author = ?`, [db.siteId]);
     const theirLatestCommit = await db.first<Commit>(`SELECT MAX(applied_at), * FROM "crr_commits" WHERE author != ?`, [db.siteId]);
 
@@ -81,8 +125,6 @@ export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) =
         ourModifiedRegions.push(row);
     }
 
-    console.log("Our modified regions before filtering", ourModifiedRegions);
-
     // Filter out region changes that didn't actually cause a difference by comparing it to the base version
     theirModifiedRegions = theirModifiedRegions.filter(region => differsFromBase(baseDoc, region));
     ourModifiedRegions = ourModifiedRegions.filter(region => differsFromBase(baseDoc, region));
@@ -94,7 +136,6 @@ export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) =
             return true;
         }
         if (positionsAreEqual(our, their)) {
-
             return false;
         } else {
             return true;
@@ -131,17 +172,18 @@ export const handleHighlevelConflicts = async (ctx: Context, pull: PullResult) =
 
         for (const region of overlap) {
             // If their region is a newly inserted region and overlaps with one of our regions (thus, not recognized as manual conflict)
-            // we roll the region back to not appear in the 
-            const isNew = ourDoc.getRow("regions", region.id);
-            if (isNew) {
+            // we roll the region back to not appear on the track
+            const exists = ourDoc.getRow("regions", region.id);
+            if (!exists) {
                 regionPksToRollback.push(region.id);
             }
         }
     }
 
-    // Rollback any of the overlapping regions such that they don't show as current state
+    // Mark any of the overlapping regions as conflicting such that they don't show as current state
     if (regionPksToRollback.length > 0) {
-        await db.execTrackChanges(`DELETE FROM "regions" WHERE ${pksEqual(db, "regions", regionPksToRollback)}`, []);
+        // await db.execTrackChanges(`DELETE FROM "regions" WHERE ${pksEqual(db, "regions", regionPksToRollback)}`, []);
+        await db.execTrackChanges(`UPDATE "regions" SET conflicts = 1 WHERE ${pksEqual(db, "regions", regionPksToRollback)}`, []);
     }
 }
 

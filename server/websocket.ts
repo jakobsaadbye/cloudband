@@ -1,8 +1,9 @@
 import { Context } from "@oak/oak";
-import { applyChanges, Change, SqliteDB } from "@jakobsaadbye/teilen-sql";
+import { applyChanges, Change, Document, SqliteDB } from "@jakobsaadbye/teilen-sql";
 
 type MyWebSocket = WebSocket & {
     clientId: string
+    docId: string
     db: SqliteDB
 };
 
@@ -11,13 +12,19 @@ const connectedClients = new Map<string, MyWebSocket>();
 export async function handleWebSocketConnection(ctx: Context, db: SqliteDB) {
     const socket = await ctx.upgrade() as MyWebSocket;
     const clientId = ctx.request.url.searchParams.get("clientId");
+    const docId = ctx.request.url.searchParams.get("docId");
 
     if (!clientId) {
         socket.close(1008, "'clientId' was not provided as a search parameter");
         return;
     }
+    if (!docId) {
+        socket.close(1008, "'docId' was not provided as a search parameter");
+        return;
+    }
 
     socket.clientId = clientId;
+    socket.docId = docId;
     socket.db = db;
 
     socket.onopen = () => clientConnected(socket);
@@ -34,7 +41,7 @@ const clientConnected = (ws: MyWebSocket) => {
 
     const pullHintMsg = JSON.stringify({
         type: "pull-hint",
-        data: null
+        data: ws.docId
     });
 
     ws.send(pullHintMsg);
@@ -47,7 +54,7 @@ const clientDisconnected = (ws: MyWebSocket) => {
 
 const handleMessage = (ws: MyWebSocket, m: MessageEvent) => {
     const msg = JSON.parse(m.data);
-
+    
     switch (msg.type) {
         case "push-changes": handlePushChanges(ws, msg.data); break;
         case "pull-changes": handlePullChanges(ws, msg.data); break;
@@ -57,12 +64,17 @@ const handleMessage = (ws: MyWebSocket, m: MessageEvent) => {
     }
 }
 
-const handlePullChanges = async (ws: MyWebSocket, data: any) => {
+//
+// @TODO: ***These two functions below should really be part of teilen as it should be standardized!***
+//
+const handlePullChanges = async (ws: MyWebSocket, document: Document) => {
     const clientId = ws.clientId;
-    const lastPulledAt = data.lastPulledAt;
 
-    const { data: changes, error } = await ws.db.selectWithError<Change[]>(`SELECT * FROM "crr_changes" WHERE site_id != ? AND applied_at > ?`, [clientId, lastPulledAt]);
-    
+    const pulledAt = new Date().getTime();
+    const { data: changes, error } = await ws.db.selectWithError<Change[]>(`
+        SELECT * FROM "crr_changes" WHERE document = ? AND site_id != ? AND applied_at > ?
+    `, [document.id, clientId, document.last_pulled_at]);
+
     if (error) {
         const msg = JSON.stringify({
             type: "pull-changes-fail",
@@ -71,49 +83,49 @@ const handlePullChanges = async (ws: MyWebSocket, data: any) => {
 
         ws.send(msg);
     } else {
-        const now = new Date().getTime();
-        const msg = JSON.stringify({
+        const pullOk = JSON.stringify({
             type: "pull-changes-ok",
             data: {
+                document,
                 changes,
-                pulledAt: now
-            } 
-        })
+                pulledAt
+            }
+        });
 
-        ws.send(msg);
+        ws.send(pullOk);
     }
 }
 
-const handlePushChanges = async (ws: MyWebSocket, changes: Change[]) => {
+const handlePushChanges = async (ws: MyWebSocket, data: { doc: Document, changes: Change[] }) => {
     try {
-        await applyChanges(ws.db, changes);
+        await applyChanges(ws.db, data.changes);
 
-        const msg = JSON.stringify({
+        // Send back an OK message to the pushing client
+        const pushOk = JSON.stringify({
             type: "push-changes-ok",
-            data: null
+            data: data.doc
         });
+        ws.send(pushOk);
 
-        ws.send(msg);
-
-        // Broadcast to everyone that a new change has occured
-        const pullHintMsg = JSON.stringify({
+        // Broadcast to everyone that a new change has occured on the document
+        const pullHint = JSON.stringify({
             type: "pull-hint",
-            data: null
+            data: data.doc.id
         });
         for (const client of connectedClients.values()) {
             if (client.clientId === ws.clientId) continue;
 
-            client.send(pullHintMsg);
+            client.send(pullHint);
         }
 
     } catch (error) {
         console.error(error);
 
-        const msg = JSON.stringify({
+        const err = JSON.stringify({
             type: "push-changes-fail",
             data: error.message
         });
 
-        ws.send(msg);
+        ws.send(err);
     }
 }

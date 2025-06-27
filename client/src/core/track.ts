@@ -15,6 +15,7 @@ class Track implements Entity {
         "pan",
         "kind",
         "filename",
+        "createdAt",
         "isUploaded",
         "deleted",
         "muted",
@@ -38,8 +39,9 @@ class Track implements Entity {
     isUploaded: boolean
 
     regions: Region[]
-    conflictingSections: Region[][]
+    conflictingSections: Region[][] // @Cleanup - Regions now have a conflict flag that should be tested for instead!
 
+    createdAt: number
     deleted: boolean
     muted: boolean
     mutedBySolo: boolean
@@ -67,6 +69,7 @@ class Track implements Entity {
 
         this.conflictingSections = [];
 
+        this.createdAt = (new Date()).getTime();
         this.deleted = false;
         this.muted = false;
         this.mutedBySolo = false;
@@ -172,6 +175,9 @@ class Region implements Entity {
         "end",
         "totalDuration",
         "deleted",
+        "conflicts",
+        "conflictsWith",
+        "createdBy"
     ] as const;
 
     id: string
@@ -188,6 +194,9 @@ class Region implements Entity {
 
     flags: number // of Region_Flags
     deleted: boolean
+    conflicts: boolean
+    conflictsWith: string // id of another region
+    createdBy: string
 
     acceptHitbox: Rectangle
     declineHitbox: Rectangle
@@ -220,6 +229,9 @@ class Region implements Entity {
 
         this.flags = RF.none;
         this.deleted = false;
+        this.conflicts = false;
+        this.conflictsWith = "";
+        this.createdBy = "";
 
         this.acceptHitbox = { x: 0, y: 0, width: 0, height: 0 };
         this.declineHitbox = { x: 0, y: 0, width: 0, height: 0 };
@@ -244,7 +256,7 @@ class Region implements Entity {
     }
 
     Play(ctx: Context, track: Track) {
-        if (this.deleted) return;
+        if (this.deleted || this.conflicts) return;
 
         const source = new AudioBufferSourceNode(audioContext, {
             buffer: this.data,

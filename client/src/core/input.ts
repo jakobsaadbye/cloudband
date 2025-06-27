@@ -133,59 +133,41 @@ class PlayerInput implements Entity {
         ctx.S({ ...ctx });
     }
 
-    async AcceptSectionChange(ctx: Context, section: Region[]) {
-        if (section.length === 0) return;
-
-        const db = ctx.db;
-
-        // Copy the data on their regions into our regions
-        const ourRegions: Region[] = [];
-        for (const theirRegion of section) {
-            const ourRegion = ctx.trackManager.GetRegionWithId(theirRegion.id);
-            if (!ourRegion) {
-                console.error(`Region was not found`);
-                return;
-            }
-            ourRegion.start = theirRegion.start;
-            ourRegion.end = theirRegion.end;
-            ourRegion.offsetStart = theirRegion.offsetStart;
-            ourRegion.offsetEnd = theirRegion.offsetEnd;
-            ourRegions.push(ourRegion);
+    async AcceptRegionChange(ctx: Context, region: Region) {
+        // Delete our region and take theirs
+        const theirRegion = region;
+        const ourRegion = ctx.trackManager.GetRegionWithId(region.conflictsWith);
+        if (!ourRegion) {
+            console.error("Failed to find our conflicting region");
+            return;
         }
 
-        await SaveEntities(ctx, ourRegions);
+        theirRegion.conflicts = false;
+        theirRegion.conflictsWith = "";
 
-        // If any of the conflicts came from teilen, resolve those by picking theirs
-        for (const region of section) {
-            await db.resolveConflict("regions", region.id, region.projectId, "all-their");
-        }
+        ourRegion.deleted = true;
 
-        // Remove conflicting section from the track + db
-        const track = ctx.trackManager.GetTrackWithId(section[0].trackId);
-        if (!track) return;
-        track.RemoveConflictingSection(section);
-        const regionConflictIds = section.map(region => region.id);
-        await ctx.db.exec(`DELETE FROM "region_conflicts" WHERE id IN (${sqlPlaceholders(regionConflictIds)})`, [...regionConflictIds]);
-
-        this.Performed(ctx, "region-accept-their", section);
+        await SaveEntities(ctx, [theirRegion, ourRegion]);
+        this.Performed(ctx, "region-accept-their", [theirRegion, ourRegion]);
     }
 
-    async DeclineSectionChange(ctx: Context, section: Region[]) {
-        const db = ctx.db;
-
-        // Resolve conflict by picking our changes from the conflict
-        for (const region of section) {
-            await db.resolveConflict("regions", region.id, region.projectId, "all-our");
+    async DeclineRegionChange(ctx: Context, region: Region) {
+        // Delete their region. Ours is already in the list
+        const theirRegion = region;
+        const ourRegion = ctx.trackManager.GetRegionWithId(region.conflictsWith);
+        if (!ourRegion) {
+            console.error("Failed to find our conflicting region");
+            return;
         }
 
-        // Also, remove the conflict from the track
-        const track = ctx.trackManager.GetTrackWithId(section[0].trackId);
-        if (!track) return;
-        track.RemoveConflictingSection(section);
-        const regionConflictIds = section.map(region => region.id);
-        await ctx.db.exec(`DELETE FROM "region_conflicts" WHERE id IN (${sqlPlaceholders(regionConflictIds)})`, [...regionConflictIds]);
+        theirRegion.conflicts = false;
+        theirRegion.conflictsWith = "";
+        theirRegion.deleted = true;
 
-        this.Performed(ctx, "region-decline-their", section);
+        ourRegion.deleted = false;
+
+        await SaveEntities(ctx, [theirRegion, ourRegion]);
+        this.Performed(ctx, "region-decline-their", [theirRegion, ourRegion]);
     }
 
     CopyRegion(ctx: Context) {
@@ -205,6 +187,7 @@ class PlayerInput implements Entity {
         newRegion.start = region.end;
         newRegion.end = region.end + region.duration;
         newRegion.totalDuration = region.totalDuration;
+        newRegion.createdBy = ctx.db.siteId;
 
         track.regions.push(newRegion);
         await this.Performed(ctx, "region-paste", [newRegion]);
@@ -232,6 +215,7 @@ class PlayerInput implements Entity {
         const A = this.selectedRegion;
         const B = new Region(track.id, A.projectId);
         B.data = A.data;
+        B.createdBy = ctx.db.siteId;
         B.totalDuration = A.totalDuration;
 
         B.start = splitTime;

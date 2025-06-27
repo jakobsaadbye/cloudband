@@ -98,6 +98,7 @@ export class TrackManager {
             region.start = 0.0;
             region.end = audioBuffer.duration;
             region.totalDuration = audioBuffer.duration;
+            region.createdBy = ctx.db.siteId;
             track.regions.push(region);
         }
 

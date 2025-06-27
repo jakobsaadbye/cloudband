@@ -1,11 +1,11 @@
 // @deno-types="npm:@types/react@19"
 import { useEffect, useState } from "react";
 import { useCtx } from "@core/context.ts";
-import { useDB, useSyncer } from "@jakobsaadbye/teilen-sql/react";
-import { sqlPlaceholders, Syncer, SyncEvent } from "@jakobsaadbye/teilen-sql";
+import { useDB, useQuery, useSyncer } from "@jakobsaadbye/teilen-sql/react";
+import { SyncEvent } from "@jakobsaadbye/teilen-sql";
 import { ReloadProject } from "@/db/load.ts";
-import { SaveEntities } from "@/db/save.ts";
-import { Track } from "@core/track.ts";
+import { ProjectRow } from "@/db/types.ts";
+import { handleSyncEvent } from "@core/sync.ts";
 
 const ENABLED = false;
 
@@ -14,103 +14,59 @@ export const AutoSync = () => {
     const db = useDB();
     const syncer = useSyncer();
 
-    const [showSaveMessage, setShowSaveMessage] = useState(false);
-    const [spinSyncIcon, setSpinSyncIcon] = useState(false);
+    const changeCount = useQuery((db, projectId) => db.getChangeCount(projectId), [ctx.project.id], { tableDependencies: ["crr_changes", "crr_documents"] }).data ?? 0;
+
     const [socket, setSocket] = useState<WebSocket | null>(null);
 
+    // Push on any new changes
     useEffect(() => {
-        const socket = new WebSocket(`ws://127.0.0.1:3000/start_web_socket?clientId=${db.siteId}`);
-
-        if (ENABLED) {
-            socket.onmessage = (e) => syncer.handleWebSocketMessage(socket, e);
+        if (changeCount > 0 && ENABLED) {
+            setTimeout(() => {
+                syncChanges(ctx.project.id);
+            }, 10);
         }
-        socket.onopen = onConnection;
+    }, [ctx, changeCount]);
 
-        setSocket(socket);
-    }, []);
+    // Open a connection
+    useEffect(() => {
+        const openConnection = async () => {
+            // Make sure that the project actually exists in our database before opening a connection on it
+            const project = await db.first<ProjectRow>(`SELECT * FROM "projects" WHERE id = ?`, [ctx.project.id]);
+            if (!project) return;
+
+            const socket = new WebSocket(`ws://127.0.0.1:3000/start_web_socket?clientId=${db.siteId}&docId=${ctx.project.id}`);
+
+            if (ENABLED) {
+                socket.onmessage = (e) => syncer.handleWebSocketMessage(socket, e);
+            }
+            socket.onopen = onConnection;
+            setSocket(socket);
+        }
+        openConnection();
+
+    }, [ctx.project.id]);
+
+    // Handle incomming changes
+    useEffect(() => {
+        if (ENABLED) {
+            syncer.addEventListener("change", (event) => handleSyncEvent(ctx, event));
+        }
+        return () => {
+            syncer.removeEventListener(handleSyncEvent);
+        }
+    }, [ctx]);
+
+
+    const syncChanges = (projectId: string) => {
+        if (!socket) return;
+        syncer.pushChangesWs(socket, projectId);
+    }
 
     const onConnection = async (event: MessageEvent) => {
         console.log(`Connected to the server ...`);
 
         // Begin uploading any files that are not yet uploaded
         await ctx.fileManager.UploadNonUploadedFiles(ctx);
-        
-    }
-
-    useEffect(() => {
-        const handleIncommingChanges = async (event: SyncEvent) => {
-            const changes = event.data;
-            
-            // Download any newly inserted tracks
-            const trackInserts = [];
-            for (let i = 0; i < changes.length; i++) {
-                const change = changes[i];
-                if (change.type === "insert" && change.tbl_name === "tracks" && change.col_id === "id") {
-
-                    // Scan for the filename and project id that also got inserted to get the download path
-                    let filename = "";
-                    let projectId = "";
-                    for (let j = i; j < changes.length; j++) {
-                        const c = changes[j];
-
-                        if (c.type === "insert" && c.tbl_name === "tracks" && c.pk === change.pk) {
-                            if (c.col_id === "filename") filename = c.value;
-                            if (c.col_id === "projectId") projectId = c.value;
-                        }
-                    }
-
-                    trackInserts.push({ projectId, filename });
-                }
-            }
-
-            for (const track of trackInserts) {
-                const file = await ctx.fileManager.GetOrDownloadFile(ctx.project.id, "tracks", track.filename);
-                if (!file) {
-                    console.error(`Failed to download file '${track.filename}'`, track.projectId);
-                }
-            }
-
-            console.log(`Pulled ${changes.length} changes`);
-
-            await ReloadProject(ctx);
-        }
-
-        if (ENABLED) {
-            syncer.addEventListener("change", handleIncommingChanges);
-        }
-
-        return () => {
-            syncer.removeEventListener(handleIncommingChanges);
-        }
-    }, [ctx]);
-
-
-    useEffect(() => {
-        if (ctx.input.lastSave === 0) return;
-
-        setShowSaveMessage(true);
-        const msgId = setTimeout(() => {
-            setShowSaveMessage(false);
-        }, 3000);
-        setSpinSyncIcon(true);
-        const spinId = setTimeout(() => {
-            setSpinSyncIcon(false);
-        }, 500);
-
-        // Push latest changes to the server
-        if (ENABLED) {
-            syncChanges();
-        }
-
-        return () => {
-            clearTimeout(msgId);
-            clearTimeout(spinId);
-        }
-    }, [ctx.input.lastSave]);
-
-    const syncChanges = () => {
-        if (!socket) return;
-        syncer.pushChangesWs(socket);
     }
 
     return;

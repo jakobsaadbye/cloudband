@@ -14,7 +14,7 @@ export const TrackList = () => {
     const db = useDB();
 
     const trackManager = ctx.trackManager;
-    const tracks = ctx.trackManager.tracks;
+    const tracks = ctx.trackManager.tracks.toSorted((a, b) => a.createdAt - b.createdAt);
 
     const [fileBeingDropped, setFileBeingDropped] = useState(false);
 
@@ -163,17 +163,9 @@ const TrackCard = ({ track }: CardProps) => {
                     </div>
                 </div>
             </div>
-            {track.conflictingSections.length > 0 && (
+            {track.regions.filter(x => x.conflicts).length > 0 && (
                 <div className="h-[98px] w-full bg-yellow-200 border-b-1 border-gray-400"></div>
             )}
         </>
     )
-}
-
-type SliderProps = {
-
-}
-
-const Slider = ({ }: SliderProps) => {
-
 }

@@ -11,7 +11,7 @@ import { CreateNewProject, Project } from "@core/project.ts";
 import { Action, PlayerInput } from "@core/input.ts";
 import { getContiniousRegions as getConflictingSections, getContiniousRegions, RegionConflict } from "@core/conflict.ts";
 
-const deserializeRow = (dest: Entity, row: any) => {
+export const deserializeRow = (dest: Entity, row: any) => {
     if (!row) return;
 
     for (const key of Object.keys(row)) {
