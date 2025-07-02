@@ -15,7 +15,7 @@ import { Syncer } from "@jakobsaadbye/teilen-sql";
 import { CommitHistory } from "./components/PrimarySidebar/Sidebars/VersionControl/CommitHistory.tsx";
 import { PrimarySidebar } from "./components/PrimarySidebar/PrimarySidebar.tsx";
 
-const baseServerUrl = "http://127.0.0.1:3000";
+const baseServerUrl = "http://127.0.0.1:3002";
 
 function App() {
 

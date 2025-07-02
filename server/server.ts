@@ -17,7 +17,7 @@ await wDb.upgradeAllTablesToCrr();
 await wDb.finalize();
 
 
-const PORT = 3000;
+const PORT = 3002;
 
 const app = new Application();
 const router = new Router();

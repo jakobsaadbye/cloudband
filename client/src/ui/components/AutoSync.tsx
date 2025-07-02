@@ -34,7 +34,7 @@ export const AutoSync = () => {
             const project = await db.first<ProjectRow>(`SELECT * FROM "projects" WHERE id = ?`, [ctx.project.id]);
             if (!project) return;
 
-            const socket = new WebSocket(`ws://127.0.0.1:3000/start_web_socket?clientId=${db.siteId}&docId=${ctx.project.id}`);
+            const socket = new WebSocket(`ws://127.0.0.1:3002/start_web_socket?clientId=${db.siteId}&docId=${ctx.project.id}`);
 
             if (ENABLED) {
                 socket.onmessage = (e) => syncer.handleWebSocketMessage(socket, e);

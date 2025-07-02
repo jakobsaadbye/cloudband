@@ -2,7 +2,7 @@ import { SqliteDB, sqlPlaceholders } from "@jakobsaadbye/teilen-sql";
 import { Track } from "@core/track.ts";
 import { Context } from "@core/context.ts";
 
-const baseUrl = "http://127.0.0.1:3000";
+const baseUrl = "http://127.0.0.1:3002";
 
 export const createFileManager = async () => {
     const db = await new Promise((resolve, reject) => {

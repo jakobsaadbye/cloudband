@@ -8,10 +8,13 @@ import App from './App.tsx'
 
 import { createDb } from "@jakobsaadbye/teilen-sql"
 import { SqliteContext, Inspector } from "@jakobsaadbye/teilen-sql/react"
+
+
 import { tables } from "@common/tables.ts";
 
 const db = await createDb("cloudband.db");
 await db.exec(tables, []);
+
 await db.upgradeTableToCrr("projects", {
   replicate: {
     exclude: ["lastAccessed"]
@@ -27,7 +30,12 @@ await db.upgradeTableToCrr("tracks", {
     exclude: ["muted", "mutedBySolo", "soloed"]
   }
 });
-await db.upgradeTableToCrr("regions");
+await db.upgradeTableToCrr("regions", {
+  manualConflict: {
+    include: ["start", "end"]
+  }
+});
+
 await db.finalize();
 
 createRoot(document.getElementById('root') as HTMLElement).render(
