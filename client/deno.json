@@ -15,13 +15,12 @@
   "imports": {
     "@/" : "./src/",
     "@core/": "./src/core/",
+    "@jakobsaadbye/teilen-sql": "npm:@jakobsaadbye/teilen-sql@^1.0.18",
     "@ui/": "./src/ui/",
     "@icons/": "./src/ui/assets/icons/",
     "@common/": "../common/",
 
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.0",
-    "@jakobsaadbye/teilen-sql": "../../teilen-sql/index.ts",
-    "@jakobsaadbye/teilen-sql/react": "../../teilen-sql/src/react/index.ts",
     "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.0.8",
     "@types/react": "npm:@types/react@^18.3.12",
     "@types/react-dom": "npm:@types/react-dom@^18.3.1",
