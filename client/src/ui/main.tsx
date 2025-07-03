@@ -30,11 +30,7 @@ await db.upgradeTableToCrr("tracks", {
     exclude: ["muted", "mutedBySolo", "soloed"]
   }
 });
-await db.upgradeTableToCrr("regions", {
-  manualConflict: {
-    include: ["start", "end"]
-  }
-});
+await db.upgradeTableToCrr("regions");
 
 await db.finalize();
 
